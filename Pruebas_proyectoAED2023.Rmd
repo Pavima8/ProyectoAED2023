@@ -1,0 +1,65 @@
+---
+title: "Pruebas ProyectoAED2023"
+output: html_document
+date: "2023-10-12"
+---
+
+```{r}
+
+```
+
+```{r}
+hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
+persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
+```
+
+Vamos a tratar de realizar un primer análisis exploratorio del DataSet **hogar**. Para ello, en primer lugar observaremos las columnas del DataSet y el tipo de elementos que contienen
+
+```{r}
+str(hogar)
+```
+Además de un alista con las distintas columnas y sus tipos de datos, podemos generar un resumen con distintos estadísticos para cada una de las variables
+
+```{r}
+summary(hogar)
+```
+Esta función también nos permite observar qué columnas contienen NA's, información que nos será útil a futuro de cara a limpiar nuestro DataSet o trabajar con los datos
+
+Como podemos observar, hay muchas columnas que contienen índices que no reflejan la información como tal, si no que hacen referencia a una escala externa, presente en otro documento. Además, hay ciertos nombres de variable que no son del todo claros, los cambiaremos para que sean más representativos. Lo que haremos a continuación será obtener la información real
+
+
+```{r}
+# En este chunK de código voy a poner, comentado para saber que hay que modificarlo o borrarlo, info relevante acerca de los campos, para no tener que mirarla en el fichero director
+
+#IDENTIFICACIÓN DE LA VIVIENDA-----------------------------------------------------------------------------------------------------------
+
+# PERIODO -> Periodo de recogida de la vivienda (formato -> aaaan; año + n-trimestre)
+# TAMANO -> Tamaño del municipio (índice por habitantes -> valores en doc director)
+# IDQ_PV -> Provincia (índices por porvincia -> valores en doc director)
+# CA -> Comunidad autonoma (IDEM provincia)
+# FACCAL -> Factor de elevación calibrado (formato numerico -> nnnnnn.nnnnnn)
+
+#CARACTERÍSTICAS DE LA VIVIENDA----------------------------------------------------------------------------------------------------------
+
+# REGVI -> Régimen de tenencia, es decir alquilada,, hipoteca, etc (índices por tipo -> valores en doc director)
+# COCINA -> Disponibilidad de cocina (1 -> Sí ; 6 -> No)
+# NHABVI -> Número de habitaciones
+# METROSVI -> Metros cuadrados útiles en la vivienda
+
+#CARACTERÍSTICAS DEL EDIFICIO------------------------------------------------------------------------------------------------------------
+
+# TIPOVIV -> Tipo de edificio  (índices 1-6 -> valores en doc director)
+# ANEDI -> Año de construcción (índices 1-9 -> valores en doc director)
+# ANOANEDI -> Año de cosntrucción (solo valores del 20021 al 2020)
+# FEDI -> Fecha de construcción (índices 01 - 11 -> valores en doc director)
+
+#CARACTERÍSTICAS DEL HOGAR---------------------------------------------------------------------------------------------------------------
+
+# TIP0HO -> Tipo de hogar (índices 1-16 -> valores en doc director)
+
+
+```
+
+
+
+
