@@ -23,10 +23,560 @@ Además de un alista con las distintas columnas y sus tipos de datos, podemos ge
 ```{r}
 summary(hogar)
 ```
+
 Esta función también nos permite observar qué columnas contienen NA's, información que nos será útil a futuro de cara a limpiar nuestro DataSet o trabajar con los datos
 
 Como podemos observar, hay muchas columnas que contienen índices que no reflejan la información como tal, si no que hacen referencia a una escala externa, presente en otro documento. Además, hay ciertos nombres de variable que no son del todo claros, los cambiaremos para que sean más representativos. Lo que haremos a continuación será obtener la información real
 
+```{r}
+hogar_2 <- hogar
+persona_2 <- persona
+
+df <- merge(persona_2, hogar_2)
+
+df_ordenado <- df %>% 
+                arrange(ID_VIV)
+
+df_ordenado$SEXO <- factor(as.character(df_ordenado$SEXO),levels = c(1,6), labels = c("Hombre","Mujer"))
+
+categorias_poblacion <- c(
+  "Menos de 101 habitantes",
+  "101-500 habitantes",
+  "501-1.000 habitantes",
+  "1.001-2.000 habitantes",
+  "2.001-5.000 habitantes",
+  "5.001-10.000 habitantes",
+  "10.001-20.000 habitantes",
+  "20.001-50.000 habitantes",
+  "50.001-100.000 habitantes",
+  "100.001-500.000 habitantes",
+  "500.001 o más habitantes"
+)
+
+df_ordenado$TAMANO <- factor(df_ordenado$TAMANO, levels = seq(1,11), labels = categorias_poblacion)
+
+df_ordenado$CA <- factor(df_ordenado$CA,levels = c(seq(1,19)), labels = c(
+  "Andalucía",
+  "Aragón",
+  "Asturias",
+  "Baleares, Islas",
+  "Canarias",
+  "Cantabria",
+  "Castilla y León",
+  "Castilla-La Mancha",
+  "Cataluña",
+  "Comunidad Valenciana",
+  "Extremadura",
+  "Galicia",
+  "Madrid",
+  "Murcia",
+  "Navarra",
+  "País Vasco",
+  "Rioja, La",
+  "Ceuta",
+  "Melilla"
+))
+
+provincias_espana <- c(
+  "Araba/Álava",
+  "Albacete",
+  "Alicante/Alacant",
+  "Almería",
+  "Ávila",
+  "Badajoz",
+  "Balears, Illes",
+  "Barcelona",
+  "Burgos",
+  "Cáceres",
+  "Cádiz",
+  "Castellón /Castelló",
+  "Ciudad Real",
+  "Córdoba",
+  "Coruña, A",
+  "Cuenca",
+  "Girona",
+  "Granada",
+  "Guadalajara",
+  "Gipuzkoa",
+  "Huelva",
+  "Huesca",
+  "Jaén",
+  "León",
+  "Lleida",
+  "Rioja, La",
+  "Lugo",
+  "Madrid",
+  "Málaga",
+  "Murcia",
+  "Navarra",
+  "Ourense",
+  "Asturias",
+  "Palencia",
+  "Palmas, Las",
+  "Pontevedra",
+  "Salamanca",
+  "Santa Cruz de Tenerife",
+  "Cantabria",
+  "Segovia",
+  "Sevilla",
+  "Soria",
+  "Tarragona",
+  "Teruel",
+  "Toledo",
+  "Valencia/València",
+  "Valladolid",
+  "Bizkaia",
+  "Zamora",
+  "Zaragoza",
+  "Ceuta",
+  "Melilla"
+)
+
+df_ordenado$IDQ_PV <- factor(df_ordenado$IDQ_PV,levels = seq(1,52), labels = provincias_espana)
+
+
+df_ordenado$EC <- factor(df_ordenado$EC,levels = c(seq(1,5)),labels = c("Soltero/a","Casado/a","Viudo/a","Separado/a","Divorciado/a"))
+
+
+df_ordenado$NAC <- df_ordenado$NAC <- factor(df_ordenado$NACIM,levels= c(1,2,3),labels = c("Española","Española y otras","No tiene nacionalidad española"))
+df_ordenado$TAMANO <- factor(df_ordenado$TAMANO)
+df_ordenado$NACIM <- factor(df_ordenado$NACIM,levels= c(1,2),labels = c("España","Fuera España"))
+df_ordenado$NACNACIMESP <- factor(df$NACNACIMESP,levels= c(1,6),labels = c("Si","No"))
+df_ordenado$NACIMPADRE <- factor(df_ordenado$NACIMPADRE,levels= c(1,2),labels = c("España","Fuera España"))
+df_ordenado$NACIMMADRE <- factor(df_ordenado$NACIMMADRE,levels= c(1,2),labels = c("España","Fuera España"))
+
+numeros <- c(
+  199, 352, 353, 354, 384, 386, 392, 397, 398, 399, 456, 101, 102, 103, 104, 106, 107, 108, 109, 110, 
+  111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 128, 129, 130, 131, 132, 
+  135, 136, 137, 138, 139, 141, 142, 143, 144, 145, 146, 147, 148, 154, 156, 157, 158, 159, 170, 171, 172, 
+  173, 174, 175, 176, 177, 179, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 
+  216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 
+  237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 260, 261, 262, 
+  263, 299, 301, 302, 303, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 
+  326, 327, 328, 329, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 370, 371, 380, 381, 382, 
+  383, 385, 387, 388, 389, 390, 391, 393, 394, 395, 396, 401, 402, 403, 404, 405, 407, 408, 409, 410, 411, 
+  412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 430, 431, 432, 433, 434, 
+  435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445, 446, 447, 448, 449, 450, 454, 455, 499, 501, 502, 
+  504, 505, 506, 507, 508, 509, 511, 512, 513, 514, 515, 516, 517, 520, 521, 523, 524, 525, 526, 527, 528, 
+  599, "Desconocido"
+)
+
+paises <- c(
+  "Otros países o territorios de Europa",
+  "Curazao",
+  "San Martín (parte neerlandesa)",
+  "Bonaire, San Eustaquio y Saba",
+  "Bermudas",
+  "Martinica",
+  "Antillas Neerlandesas",
+  "Otros países o territorios del Caribe y América Central",
+  "Otros países o territorios de Sudamérica",
+  "Otros países o territorios de América",
+  "Islas Marianas del Norte",
+  "Albania",
+  "Austria",
+  "Bélgica",
+  "Bulgaria",
+  "Chipre",
+  "Dinamarca",
+  "España",
+  "Finlandia",
+  "Francia",
+  "Grecia",
+  "Hungría",
+  "Irlanda",
+  "Islandia",
+  "Italia",
+  "Liechtenstein",
+  "Luxemburgo",
+  "Malta",
+  "Mónaco",
+  "Noruega",
+  "Países Bajos",
+  "Polonia",
+  "Portugal",
+  "Andorra",
+  "Reino Unido",
+  "Alemania",
+  "Rumanía",
+  "San Marino",
+  "Santa sede",
+  "Suecia",
+  "Suiza",
+  "Ucrania",
+  "Letonia",
+  "Moldavia",
+  "Belarús",
+  "Georgia",
+  "Estonia",
+  "Lituania",
+  "República Checa",
+  "República Eslovaca",
+  "Bosnia y Herzegovina",
+  "Croacia",
+  "Eslovenia",
+  "Armenia",
+  "Rusia",
+  "Macedonia",
+  "Serbia",
+  "Montenegro",
+  "Otros países o territorios de la Unión Europea",
+  "Guernesey",
+  "Svalbard y Jan Mayen",
+  "Islas Feroe",
+  "Isla de Man",
+  "Gibraltar",
+  "Islas del Canal",
+  "Jersey",
+  "Islas Aland",
+  "Otros países o territorios del resto de Europa",
+  "Burkina Faso",
+  "Angola",
+  "Argelia",
+  "Benin",
+  "Botswana",
+  "Burundi",
+  "Cabo Verde",
+  "Camerún",
+  "Comores",
+  "Congo",
+  "Costa de marfil",
+  "Djibouti",
+  "Egipto",
+  "Etiopía",
+  "Gabón",
+  "Gambia",
+  "Ghana",
+  "Guinea",
+  "Guinea-Bissau",
+  "Guinea Ecuatorial",
+  "Kenia",
+  "Lesotho",
+  "Liberia",
+  "Libia",
+  "Madagascar",
+  "Malawi",
+  "Mali",
+  "Marruecos",
+  "Mauricio",
+  "Mauritania",
+  "Mozambique",
+  "Namibia",
+  "Níger",
+  "Nigeria",
+  "República Centroafricana",
+  "Sudáfrica",
+  "Ruanda",
+  "Santo tomé y Príncipe",
+  "Senegal",
+  "Seychelles",
+  "Sierra leona",
+  "Somalia",
+  "Sudán",
+  "Swazilandia",
+  "Tanzania",
+  "Chad",
+  "Togo",
+  "Túnez",
+  "Uganda",
+  "República Democrática del Congo",
+  "Zambia",
+  "Zimbabwe",
+  "Eritrea",
+  "Sudán del Sur",
+  "Santa Helena",
+  "Reunión",
+  "Mayotte",
+  "Sahara Occidental",
+  "Otros países o territorios de África",
+  "Canadá",
+  "Estados Unidos de América",
+  "México",
+  "Antigua y barbuda",
+  "Bahamas",
+  "Barbados",
+  "Belice",
+  "Costa rica",
+  "Cuba",
+  "Dominica",
+  "El Salvador",
+  "Granada",
+  "Guatemala",
+  "Haití",
+  "Honduras",
+  "Jamaica",
+  "Nicaragua",
+  "Panamá",
+  "San Vicente y las Granadinas",
+  "República Dominicana",
+  "Trinidad y Tobago",
+  "Santa Lucía",
+  "San Cristóbal y Nieves",
+  "Argentina",
+  "Bolivia",
+  "Brasil",
+  "Colombia",
+  "Chile",
+  "Ecuador",
+  "Guyana",
+  "Paraguay",
+  "Perú",
+  "Surinam",
+  "Uruguay",
+  "Venezuela",
+  "San Pedro y Miquelón",
+  "Groenlandia",
+  "Islas Caimán",
+  "Islas Turcas y Caicos",
+  "Islas Vírgenes de los Estados Unidos",
+  "Guadalupe",
+  "San Martín (parte francesa)",
+  "Montserrat",
+  "Anguilla",
+  "San Bartolomé",
+  "Puerto Rico",
+  "Aruba",
+  "Islas Vírgenes Británicas",
+  "Guayana Francesa",
+  "Islas Malvinas",
+  "Otros países o territorios de América del Norte",
+  "Afganistán",
+  "Arabia Saudí",
+  "Bahréin",
+  "Bangladesh",
+  "Myanmar",
+  "China",
+  "Emiratos Árabes Unidos",
+  "Filipinas",
+  "India",
+  "Indonesia",
+  "Iraq",
+  "Irán",
+  "Israel",
+  "Japón",
+  "Jordania",
+  "Camboya",
+  "Kuwait",
+  "Laos",
+  "Líbano",
+  "Malasia",
+  "Maldivas",
+  "Mongolia",
+  "Nepal",
+  "Omán",
+  "Pakistán",
+  "Qatar",
+  "Corea",
+  "Corea del Norte",
+  "Singapur",
+  "Siria",
+  "Sri Lanka",
+  "Tailandia",
+  "Turquía",
+  "Vietnam",
+  "Taiwán",
+  "Brunei",
+  "Islas Marshall",
+  "Yemen",
+  "Azerbaiyán",
+  "Kazajstán",
+  "Kirguistán",
+  "Tayikistán",
+  "Turkmenistán",
+  "Uzbekistán",
+  "Bhután",
+  "Palestina. Estado Observador, no miembro de Naciones Unidas",
+  "Hong Kong",
+  "Guam",
+  "Macao",
+  "Otros países o territorios de Asia",
+  "Australia",
+  "Fiji",
+  "Nueva Zelanda",
+  "Papúa Nueva Guinea",
+  "Islas Salomón",
+  "Samoa",
+  "Tonga",
+  "Vanuatu",
+  "Micronesia",
+  "Tuvalu",
+  "Islas Cook",
+  "Kiribati",
+  "Nauru",
+  "Palaos",
+  "Timor Oriental",
+  "Polinesia Francesa",
+  "Isla Norfolk",
+  "Niue",
+  "Islas Pitcairn",
+  "Tokelau",
+  "Nueva Caledonia",
+  "Wallis y Fortuna",
+  "Samoa Americana",
+  "Otros países o territorios de Oceanía",
+  "Desconocido"
+)
+
+df_ordenado$PNACT <- factor(df_ordenado$PNACT , levels = numeros, labels = paises)
+
+df_ordenado$PNACIMT <- factor(df_ordenado$PNACIMT, levels = numeros, labels = paises)
+
+df_ordenado$PNACNACIMT <- factor(df_ordenado$PNACNACIMT, levels = numeros, labels = paises)
+
+df_ordenado$PNACIMPADRET <- factor(df_ordenado$PNACIMPADRET, levels = numeros, labels = paises)
+
+df_ordenado$PNACIMMADRET <- factor(df_ordenado$PNACIMMADRET, levels = numeros, labels = paises)
+
+df_ordenado$ESTUDIOS <- factor(df_ordenado$ESTUDIOS, levels = seq(1,12), labels = c(
+  "No sabe leer ni escribir",
+  "Educación básica (menos de 5 años de escolaridad)",
+  "Educación básica (5 años o más de escolaridad, sin completar la ESO, EGB o Bachiller Elemental)",
+  "Educación básica (completó la ESO, EGB o Bachiller Elemental o tiene el Certificado de Escolaridad o de Estudios Primarios)",
+  "Bachillerato",
+  "Formación Profesional (grado medio, FP I, Oficialía Industrial u equivalente)",
+  "Formación Profesional (grado superior, FP II, Maestría Industrial u equivalente)",
+  "Diplomatura universitaria, Arquitectura Técnica, Ingeniería Técnica u equivalente",
+  "Grado Universitario o equivalente",
+  "Licenciatura, Arquitectura, Ingeniería u equivalente",
+  "Master oficial universitario (a partir de 2006), Especialidades Médicas u análogos",
+  "Doctorado"
+)
+)
+df_ordenado$RELACT <- factor(df$RELACT, levels = seq(1,8), labels = c(
+  "Trabajando a tiempo completo",
+  "Trabajando a tiempo parcial",
+  "Parado",
+  "Estudiando",
+  "Jubilado, prejubilado, retirado de una actividad económica previa",
+  "Incapacitado para trabajar",
+  "Dedicado a las labores de mi hogar",
+  "Otro tipo de inactividad"
+))
+
+df_ordenado$OCUPA <- factor(df_ordenado$OCUPA,levels = seq(1,4), labels = c("Empresario, profesional o trabajador por cuenta propia que emplea a otras personas",
+  "Empresario, profesional o trabajador por cuenta propia que no emplea a otras personas",
+  "Asalariado o trabajador por cuenta ajena con contrato indefinido",
+  "Asalariado o trabajador por cuenta ajena con contrato eventual o temporal"))
+
+df_ordenado$SITUHO <- factor(df_ordenado$SITUHO,levels = seq(1,10), labels = c("Personas que forman un núcleo familiar. Personas de distinto sexo casadas",
+  "Personas que forman un núcleo familiar. Personas de mismo sexo casadas",
+  "Personas que forman un núcleo familiar. Parejas de hecho de distinto sexo",
+  "Personas que forman un núcleo familiar. Parejas de hecho de mismo sexo",
+  "Personas que forman un núcleo familiar. Padres o madres solos",
+  "Personas que forman un núcleo familiar. Hijos/as No con un padre o madre solo/a",
+  "Personas que forman un núcleo familiar. Hijos/as con un padre o madre sólo",
+  "Personas que no forman un núcleo familiar. Personas que viven solas",
+  "Personas que no forman un núcleo familiar. Personas que no viven solas. Conviven con otros parientes (con los que no forman núcleo familiar)",
+  "Personas que no forman un núcleo familiar. Personas que no viven solas. Conviven con otras personas que no son parientes"))
+
+df_ordenado$SITUHO_D <- factor(df_ordenado$SITUHO_D,levels = seq(1,10), labels = c("Personas que forman un núcleo familiar. Personas casadas sin hijos",
+  "Personas que forman un núcleo familiar. Personas casadas con hijos",
+  "Parejas de hecho sin hijos",
+  "Parejas de hecho con hijos",
+  "Padres o madres solos",
+  "Hijos/Hijas. No con un padre o madre solo/a",
+  "Hijos/Hijas. Con un padre o madre solo",
+  "Personas que no forman un núcleo familiar. Personas que viven solas",
+  "Personas que no forman un núcleo familiar. Personas que no viven solas. Conviven con otros parientes (con los que no forman núcleo familiar)",
+  "Personas que no forman un núcleo familiar. Personas que no viven solas. Conviven con otras personas que no son parientes"))
+
+
+df_ordenado$PAREJA <- factor(df_ordenado$PAREJA, levels = seq(1,5), labels = c("Convive con cónyuge de distinto sexo",
+  "Convive con cónyuge del mismo sexo",
+  "Convive con pareja de hecho de distinto sexo",
+  "Convive con pareja de hecho del mismo sexo",
+  "No convive en pareja"))
+
+df_ordenado$SEXOPAR <- factor(df_ordenado$SEXOPAR, levels = seq(1,3), labels = c("Pareja de distinto sexo",
+  "Pareja del mismo sexo masculino",
+  "Pareja del mismo sexo femenino"))
+
+df_ordenado$NACPAR <- factor(df_ordenado$NACPAR, levels = seq(1,4), labels = c("Ambos españoles",
+  "Ambos extranjeros",
+  "Español con pareja extranjera",
+  "Española con pareja extranjera"))
+
+df_ordenado$ECPAR <- factor(df_ordenado$ECPAR, levels = seq(1,2), labels = c("Ambos solteros",
+  "No son ambos solteros"))
+
+df_ordenado$HIJOSDEAMBOS <- factor(df_ordenado$HIJOSDEAMBOS, levels = seq(1,3), labels = c("Conviviendo sin hijos",
+  "Conviviendo con hijos todos comunes",
+  "Conviviendo con hijos no comunes"))
+
+df_ordenado$SITUNUCLEOFAM <- factor(df_ordenado$SITUNUCLEOFAM , levels = seq(1,4), labels = c("Convive con su cónyuge",
+  "Convive con su pareja de hecho",
+  "Madre solo",
+  "Padre solo"))
+
+df_ordenado$REGVI <- factor(df_ordenado$REGVI , levels = seq(1,4), labels = c("Propia por compra, totalmente pagada, heredada o donada",
+  "Propia por compra con hipotecas",
+  "Alquilada",
+  "Cedidas gratis o bajo precio por otro hogar, la empresa..."))
+
+df_ordenado$COCINA <- factor(df_ordenado$COCINA , levels = seq(1,2), labels = c("Si", "No"))
+
+df_ordenado$TIPOVIV <- factor(df_ordenado$TIPOVIV , levels = seq(1,6), labels = c("Unifamiliar independiente",
+  "Unifamiliar adosada o pareada",
+  "Edificio con dos viviendas",
+  "Edificio entre 3 y 9 viviendas",
+  "Edificio con 10 o más viviendas",
+  "Edificio destinado a otros usos (e incluye una o más viviendas convencionales)"))
+
+df_ordenado$ANEDI <- factor(df_ordenado$ANEDI , levels = seq(1,9), labels = c(  "Después del año 2000",
+  "Entre 1991-2000",
+  "Entre 1981-1990",
+  "Entre 1971-1980",
+  "Entre 1961-1970",
+  "Entre 1951-1960",
+  "Entre 1941-1950",
+  "Entre 1921-1940",
+  "Antes de 1921"))
+
+df_ordenado$FEDI <- factor(df_ordenado$FEDI , levels = seq(1,11), labels = c("Antes de 1921",
+  "Entre 1921 y 1940",
+  "Entre 1941 y 1950",
+  "Entre 1951 y 1960",
+  "Entre 1961 y 1970",
+  "Entre 1971 y 1980",
+  "Entre 1981 y 1990",
+  "Entre 1991 y 2000",
+  "Entre 2001 y 2005",
+  "Entre 2006 y 2010",
+  "Posterior al 2010"))
+
+df_ordenado$TIPOHO <- factor(df_ordenado$TIPOHO , levels = seq(1,16), labels = c("Persona sola menor de 65 años",
+  "Persona sola de 65 años o más",
+  "Madre/padre solo con algún hijo menor de 25 años",
+  "Madre/padre solo con algún hijo todos mayores de 24 años",
+  "Pareja sin hijos que convivan en el hogar",
+  "Pareja con hijos de ambos miembros que conviven en el hogar alguno menor de 25 años",
+  "Pareja con hijos de ambos miembros que conviven en el hogar todos mayores de 24 años",
+  "Pareja con algún hijo de un solo miembro y además alguno de los hijos menor de 25 años",
+  "Pareja con algún hijo de un solo miembro que conviven en el hogar todos mayores de 25 años",
+  "Pareja con algún hijo menor de 25 años y otras personas",
+  "Madre/padre con algún hijo menor de 25 años y otras personas",
+  "Pareja o Madre/padre con algún hijo todos mayores de 24 años y otras personas",
+  "Pareja sin hijos y otros familiares",
+  "Pareja sin hijos y otras personas alguna de ellas no tiene relación de parentesco con la pareja",
+  "Personas que no forman pareja y si tienen parentesco es distinto de padre e hijo",
+  "Otros (más de un núcleo)"))
+
+df_ordenado$NACHO <- factor(df_ordenado$NACHO , levels = seq(1,4), labels = c("Hogar nacional. Sólo con españoles",
+  "Hogar nacional. Con españoles y extranjeros",
+  "Hogar extranjero. Sólo con una nacionalidad",
+  "Hogar extranjero. Con diversas nacionalidades"))
+
+df_ordenado$NUCLEOFAM <- factor(df_ordenado$NUCLEOFAM , levels = seq(1,4), labels = c("Pareja casada con o sin hijos, con o sin otras personas",
+  "Pareja de hecho con o sin hijos, con o sin otras personas",
+  "Madre con hijos, con o sin otras personas",
+  "Padre con hijos, con o sin otras personas"))
+
+variables_vacias <- paste("P",seq(13,19),sep = "")
+
+df_ordenado <- df_ordenado[,which(colnames(df_ordenado) != variables_vacias)]
+
+summary(df_ordenado)
+```
 
 ```{r}
 # En este chunK de código voy a poner, comentado para saber que hay que modificarlo o borrarlo, info relevante acerca de los campos, para no tener que mirarla en el fichero director
@@ -56,8 +606,6 @@ Como podemos observar, hay muchas columnas que contienen índices que no refleja
 #CARACTERÍSTICAS DEL HOGAR---------------------------------------------------------------------------------------------------------------
 
 # TIP0HO -> Tipo de hogar (índices 1-16 -> valores en doc director)
-
-
 ```
 
 
