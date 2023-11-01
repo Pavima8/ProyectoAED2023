@@ -5,12 +5,92 @@ date: "2023-10-12"
 ---
 
 ```{r}
-
+library(readr)
+library(readxl)
 ```
 
 ```{r}
 hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
 persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
+dic_hogar <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
+dic_hogar_t1 <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = 2)
+dic_hogar_t2 <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = 3)
+dic_persona <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
+dic_persona_t1 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 2)
+dic_persona_t2 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 3)
+dic_persona_t3 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 4)
+```
+
+El siguiente bloque de código se encarga de reemplazar todos los términos con un diccionario asociado. Tarda bastante en ejecutarse, supongo que por la cantidad de filas y columnas y la longitud de lo que tiene que reemplazar. Lo dejo para todas las columnas, pero se puede especificar para que actúe sobre las que queramos.
+
+```{r}
+for (i in seq_len(nrow(dic_hogar))) {
+  if (!is.na(dic_hogar$`Diccionario ubicado en la hoja…`[i])){
+    
+    # If the variable has a dictionary, print the name of the sheet where it is located
+    
+    cat(sprintf("Variable %s has dictionary located in sheet %s\n", dic_hogar$Variable[i], dic_hogar$`Diccionario ubicado en la hoja…`[i]))
+    
+    if(dic_hogar$`Diccionario ubicado en la hoja…`[i] == "Tablas1"){
+      consult <- dic_hogar_t1
+      # Find the row index where the word is found
+      start_row <- which(consult$`En hoja -Diseño-. Variables:` == dic_hogar$Variable[i])
+      # Find the row index where NA is found after the word
+      for(fila in start_row:length(consult[[1]])){
+        if(is.na(consult[[1]][fila]) == T){
+          end_row <- fila
+          break
+        }else {
+          end_row <- fila
+        }
+      }
+      
+      # Select the subset of rows between the word and the first NA
+      subset_df <- consult[start_row:end_row, ]
+      subset_df[[1]] <- as.numeric(subset_df[[1]])
+      
+      for(j in 1:length(hogar[[dic_hogar$Variable[i]]])){
+       if (is.na(hogar[[dic_hogar$Variable[i]]][j]) == T){
+          next
+        }else{
+        hogar[[dic_hogar$Variable[i]]][j] <- subset_df[[2]][which(subset_df[1] == hogar[[dic_hogar$Variable[i]]][j])]
+        }
+      }
+    
+    
+   }else if(dic_hogar$`Diccionario ubicado en la hoja…`[i] == "Tablas2"){
+    
+      consult <- dic_hogar_t2
+      # Find the row index where the word is found
+      start_row <- which(consult$`En hoja -Diseño-. Variables:` == dic_hogar$Variable[i])
+      # Find the row index where NA is found after the word
+      for(fila in start_row:length(consult[[1]])){
+        if(is.na(consult[[1]][fila]) == T){
+          end_row <- fila
+          break
+        }else {
+          end_row <- fila
+        }
+      }
+      
+      # Select the subset of rows between the word and the first NA
+      subset_df <- consult[start_row:end_row, ]
+      subset_df[[1]] <- as.numeric(subset_df[[1]])
+      
+      for(j in 1:length(hogar[[dic_hogar$Variable[i]]])){
+        if (is.na(hogar[[dic_hogar$Variable[i]]][j]) == T){
+          next
+        }else{
+        hogar[[dic_hogar$Variable[i]]][j] <- subset_df[[2]][which(subset_df[1] == hogar[[dic_hogar$Variable[i]]][j])]
+        }
+      }
+      
+   }else {
+    # If the variable does not have a dictionary, print a message indicating so
+    cat(sprintf("Variable %s does not have a dictionary\n", dic_hogar$Variable[i]))
+  }
+ }
+}
 ```
 
 Vamos a tratar de realizar un primer análisis exploratorio del DataSet **hogar**. Para ello, en primer lugar observaremos las columnas del DataSet y el tipo de elementos que contienen
@@ -61,5 +141,7 @@ Como podemos observar, hay muchas columnas que contienen índices que no refleja
 ```
 
 
+```{r}
+```
 
 
