@@ -5,7 +5,8 @@ date: "2023-10-12"
 ---
 
 ```{r}
-
+library(tidyverse)
+library(lubridate)
 ```
 
 ```{r}
@@ -576,6 +577,41 @@ variables_vacias <- paste("P",seq(13,19),sep = "")
 df_ordenado <- df_ordenado[,which(colnames(df_ordenado) != variables_vacias)]
 
 summary(df_ordenado)
+
+#Extranjeros por pais
+df_ordenado %>% 
+group_by(PNACT) %>%
+  filter(ESTUDIOS == "No sabe leer ni escribir") %>% 
+  summarise(no_rows = length(which(PNACT != "España"))) %>% 
+  arrange(desc(no_rows)) %>% 
+  head(10)
+
+df_ordenado %>% 
+  select(PNACT,RELACT,EDAD) %>% 
+  filter(EDAD > 16 & RELACT != is.na(RELACT)) %>% 
+  group_by(PNACT) %>% 
+   summarise(no_rows =length(which(RELACT== "Parado"))) %>% 
+  arrange(desc(no_rows)) %>% 
+  head(10)
+
+
+df_ordenado %>% 
+group_by(PNACT) %>%
+  filter(TAMANO == "500.001 o más habitantes") %>% 
+  summarise(no_rows = sum(length(which(PNACT != "España")))) %>% 
+  arrange(desc(no_rows)) %>% 
+  head(10)
+
+df_ordenado_2 <- df_ordenado %>% 
+  select(!c(P01:P12,ANEDI,NHIJOME_NUCLEO,NHIJOPAR,NHIJOMENOR,ANOANEDI)) 
+
+
+
+mean(df_ordenado_2$TPOFLLEG,na.rm = T)
+table(df_ordenado_2$NACIMPADRE,df_ordenado_2$PNACIMPADRET)
+summary(df_ordenado)
+
+str(df_ordenado_2)
 ```
 
 ```{r}
