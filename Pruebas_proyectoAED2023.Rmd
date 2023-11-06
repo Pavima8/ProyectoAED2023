@@ -527,6 +527,34 @@ df_norm <- df_merged |>
 ```
 
 
+### Casos posibles a estudiar
+
+1. El tamaño de la provincia afecta a las carácteristicas del hogar?
+
+2. Afecta tu nivel de estudios en donde vives?
+
+3. Tu estado civil tiene relación con tu hogar?
+
+4. Existen diferencias entre nacionales y extranjeros en nivel de estudios, ocupación, hijos, tamaño de población o tipo de vivienda?
+
+5. Esta correlacionada la edad con tu vivienda?
+
+6. Existe alguna diferencia entre los extranjeros nacionalizados y los no nacionalizados?
+
+
+```{r}
+df_merged_1 <- df %>% 
+  select(c(TAMANO,PROVINCIA,CA,ASEOS,COMEDORES,TRASTEROS,OTRASHAB,HABVI,METROSVI,TIPOVIV,F_CONS_EDI,REGVI,NPV)) %>% 
+  filter(NPV == 1) %>% 
+  select(!c(CA,PROVINCIA,NPV))
+
+df_norm <- df_norm %>% 
+  select(!c(PROVINCIA,CA))
+
+cor(df_merged_1,method = "pearson")
+
+```
+
 ### Detección de outliers
 
 ```{r}
@@ -584,6 +612,8 @@ outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOu
 return(outliers)
 
 }
+
+deteccion_outliers(df_merged_1$HABVI)
 
 ```
 
