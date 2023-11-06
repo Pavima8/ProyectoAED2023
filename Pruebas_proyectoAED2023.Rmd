@@ -4,93 +4,88 @@ output: html_document
 date: "2023-10-12"
 ---
 
-```{r}
+```{r, message = FALSE}
+#librerias
 library(readr)
 library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(mapdata)
 ```
 
 ```{r}
 hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
 persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
-dic_hogar <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
-dic_hogar_t1 <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = 2)
-dic_hogar_t2 <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = 3)
-dic_persona <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
-dic_persona_t1 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 2)
-dic_persona_t2 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 3)
-dic_persona_t3 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 4)
 ```
 
 El siguiente bloque de código se encarga de reemplazar todos los términos con un diccionario asociado. Tarda bastante en ejecutarse, supongo que por la cantidad de filas y columnas y la longitud de lo que tiene que reemplazar. Lo dejo para todas las columnas, pero se puede especificar para que actúe sobre las que queramos.
 
-```{r}
-for (i in seq_len(nrow(dic_hogar))) {
-  if (!is.na(dic_hogar$`Diccionario ubicado en la hoja…`[i])){
-    
-    # If the variable has a dictionary, print the name of the sheet where it is located
-    
-    cat(sprintf("Variable %s has dictionary located in sheet %s\n", dic_hogar$Variable[i], dic_hogar$`Diccionario ubicado en la hoja…`[i]))
-    
-    if(dic_hogar$`Diccionario ubicado en la hoja…`[i] == "Tablas1"){
-      consult <- dic_hogar_t1
-      # Find the row index where the word is found
-      start_row <- which(consult$`En hoja -Diseño-. Variables:` == dic_hogar$Variable[i])
-      # Find the row index where NA is found after the word
-      for(fila in start_row:length(consult[[1]])){
-        if(is.na(consult[[1]][fila]) == T){
-          end_row <- fila
-          break
-        }else {
-          end_row <- fila
-        }
-      }
-      
-      # Select the subset of rows between the word and the first NA
-      subset_df <- consult[start_row:end_row, ]
-      subset_df[[1]] <- as.numeric(subset_df[[1]])
-      
-      for(j in 1:length(hogar[[dic_hogar$Variable[i]]])){
-       if (is.na(hogar[[dic_hogar$Variable[i]]][j]) == T){
-          next
-        }else{
-        hogar[[dic_hogar$Variable[i]]][j] <- subset_df[[2]][which(subset_df[1] == hogar[[dic_hogar$Variable[i]]][j])]
-        }
-      }
-    
-    
-   }else if(dic_hogar$`Diccionario ubicado en la hoja…`[i] == "Tablas2"){
-    
-      consult <- dic_hogar_t2
-      # Find the row index where the word is found
-      start_row <- which(consult$`En hoja -Diseño-. Variables:` == dic_hogar$Variable[i])
-      # Find the row index where NA is found after the word
-      for(fila in start_row:length(consult[[1]])){
-        if(is.na(consult[[1]][fila]) == T){
-          end_row <- fila
-          break
-        }else {
-          end_row <- fila
-        }
-      }
-      
-      # Select the subset of rows between the word and the first NA
-      subset_df <- consult[start_row:end_row, ]
-      subset_df[[1]] <- as.numeric(subset_df[[1]])
-      
-      for(j in 1:length(hogar[[dic_hogar$Variable[i]]])){
-        if (is.na(hogar[[dic_hogar$Variable[i]]][j]) == T){
-          next
-        }else{
-        hogar[[dic_hogar$Variable[i]]][j] <- subset_df[[2]][which(subset_df[1] == hogar[[dic_hogar$Variable[i]]][j])]
-        }
-      }
-      
-   }else {
-    # If the variable does not have a dictionary, print a message indicating so
-    cat(sprintf("Variable %s does not have a dictionary\n", dic_hogar$Variable[i]))
+```{r, message = FALSE}
+dic <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1, progress = F)
+
+tab1 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab1) <- c("Cod", "Desc", "Var")
+ind <- which(tab1$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1[(ind[i]-1):nrow(tab1), "Var"] <- tab1[ind[i]-1, 3]
+    tab1[(ind[i]-1):nrow(tab1), "New_Var"] <- tab1[ind[i]-1, 1]
+  } else {
+    tab1[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1[ind[i]-1, 3]
+    tab1[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1[ind[i]-1, 1]
   }
- }
 }
+I <- (!is.na(tab1$Cod != "Código") & tab1$Cod != "Código")
+tab1 <- tab1[I, ]
+
+J <- (!is.na(tab1$Desc))
+tab1 <- tab1[J, ]
+
+tab2 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab2) <- c("Cod", "Desc", "Var")
+ind <- which(tab2$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2[(ind[i]-1):nrow(tab2), "Var"] <- tab2[ind[i]-1, 3]
+    tab2[(ind[i]-1):nrow(tab2), "New_Var"] <- tab2[ind[i]-1, 1]
+  } else {
+    tab2[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2[ind[i]-1, 3]
+    tab2[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2$Cod != "Código") & tab2$Cod != "Código")
+tab2 <- tab2[I, ]
+
+J <- (!is.na(tab2$Desc))
+tab2 <- tab2[J, ]
+
+tab <- full_join(tab1, tab2)
+
+tab$Cod <- as.numeric(as.character(tab$Cod))
+
+for (i in names(hogar)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(hogar[,i] == tab$Cod[pos[j]])
+      hogar[cod, i] <- tab$Desc[pos[j]]
+    }
+  }
+}
+
 ```
 
 Vamos a tratar de realizar un primer análisis exploratorio del DataSet **hogar**. Para ello, en primer lugar observaremos las columnas del DataSet y el tipo de elementos que contienen
@@ -140,8 +135,66 @@ Como podemos observar, hay muchas columnas que contienen índices que no refleja
 
 ```
 
+Este bloque es el encargado de obtener la latitud y longitud de las distintas provincias (no es necesario ejecutarlo, el dataset está guardado en la carpeta data)
+
+```{r, eval = FALSE}
+library(geonames)
+
+# List of provinces in Spain
+provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
+
+# Function to get latitude and longitude of a province
+get_lat_long <- function(province) {
+  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2")
+  result <- c(aux$lat, aux$lng)
+  return(result)
+}
+
+# Get latitude and longitude of all provinces
+lat_long <- lapply(provinces, get_lat_long)
+
+# Combine latitude and longitude into a data frame
+lat_long_df <- do.call(rbind, lat_long)
+```
+
+Una vez realizada la consulta via API a través de geonames y obtemnidas las latitudes y longitudes de las provincias, arreglamos el dataframe y lo guardamos en la carpeta data para no tener que realizar un aconsulta a la API cada vez que ejecutemos el código
+
+```{r, eval = FALSE}
+lat_long_df <- data.frame(lat_long_df)
+colnames(lat_long_df) = c("Latitud", "Longitud")
+
+provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
+
+lat_long_df <- lat_long_df %>%
+  mutate(Provincias = c(provinces)) %>%
+  select(Provincias, everything())
+
+write.csv(lat_long_df, file = "./data/geolocalizacion_provincias.csv")
+```
 
 ```{r}
+province_geoloc <- read_csv(file = "./data/geolocalizacion_provincias.csv", show_col_types = F)
+peninsula_geoloc <- province_geoloc %>%
+  filter(Provincias != "Ceuta" & Provincias != "Melilla" & Provincias != "Santa Cruz de Tenerife" & Provincias != "Palmas, Las")
+
+spain <- map_data("world")  # Get Spain data
+spain <- subset(spain, region == "Spain")  # Filter Spain
+
+ggplot(data = spain, aes(x = long, y = lat)) +
+  geom_polygon(aes(group = group),fill = "#FAEBD7", color = "black") +
+  coord_cartesian(ylim = c(min(peninsula_geoloc$Latitud)-0.4, max(peninsula_geoloc$Latitud))+0.2, xlim = c(min(peninsula_geoloc$Longitud)-0.4, max(peninsula_geoloc$Longitud)+0.3)) +
+  labs(x = "longitud", y = "Latitud")
 ```
+
+```{r}
+spain <- map_data("world")  # Get Spain data
+spain <- subset(spain, region == "Spain")  # Filter Spain
+ggplot(data = spain, aes(x = long, y = lat, group = group)) +
+  geom_polygon(fill = "#FAEBD7", color = "black")
+```
+
+
+
+
 
 
