@@ -10,105 +10,6 @@ library(readxl)
 ```
 
 ```{r}
-hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
-persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
-dic_hogar <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
-dic_hogar_t1 <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = 2)
-dic_hogar_t2 <- read_xlsx("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = 3)
-dic_persona <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
-dic_persona_t1 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 2)
-dic_persona_t2 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 3)
-dic_persona_t3 <- read_xlsx("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = 4)
-```
-
-El siguiente bloque de código se encarga de reemplazar todos los términos con un diccionario asociado. Tarda bastante en ejecutarse, supongo que por la cantidad de filas y columnas y la longitud de lo que tiene que reemplazar. Lo dejo para todas las columnas, pero se puede especificar para que actúe sobre las que queramos.
-
-```{r}
-for (i in seq_len(nrow(dic_hogar))) {
-  if (!is.na(dic_hogar$`Diccionario ubicado en la hoja…`[i])){
-    
-    # If the variable has a dictionary, print the name of the sheet where it is located
-    
-    cat(sprintf("Variable %s has dictionary located in sheet %s\n", dic_hogar$Variable[i], dic_hogar$`Diccionario ubicado en la hoja…`[i]))
-    
-    if(dic_hogar$`Diccionario ubicado en la hoja…`[i] == "Tablas1"){
-      consult <- dic_hogar_t1
-      # Find the row index where the word is found
-      start_row <- which(consult$`En hoja -Diseño-. Variables:` == dic_hogar$Variable[i])
-      # Find the row index where NA is found after the word
-      for(fila in start_row:length(consult[[1]])){
-        if(is.na(consult[[1]][fila]) == T){
-          end_row <- fila
-          break
-        }else {
-          end_row <- fila
-        }
-      }
-      
-      # Select the subset of rows between the word and the first NA
-      subset_df <- consult[start_row:end_row, ]
-      subset_df[[1]] <- as.numeric(subset_df[[1]])
-      
-      for(j in 1:length(hogar[[dic_hogar$Variable[i]]])){
-       if (is.na(hogar[[dic_hogar$Variable[i]]][j]) == T){
-          next
-        }else{
-        hogar[[dic_hogar$Variable[i]]][j] <- subset_df[[2]][which(subset_df[1] == hogar[[dic_hogar$Variable[i]]][j])]
-        }
-      }
-    
-    
-   }else if(dic_hogar$`Diccionario ubicado en la hoja…`[i] == "Tablas2"){
-    
-      consult <- dic_hogar_t2
-      # Find the row index where the word is found
-      start_row <- which(consult$`En hoja -Diseño-. Variables:` == dic_hogar$Variable[i])
-      # Find the row index where NA is found after the word
-      for(fila in start_row:length(consult[[1]])){
-        if(is.na(consult[[1]][fila]) == T){
-          end_row <- fila
-          break
-        }else {
-          end_row <- fila
-        }
-      }
-      
-      # Select the subset of rows between the word and the first NA
-      subset_df <- consult[start_row:end_row, ]
-      subset_df[[1]] <- as.numeric(subset_df[[1]])
-      
-      for(j in 1:length(hogar[[dic_hogar$Variable[i]]])){
-        if (is.na(hogar[[dic_hogar$Variable[i]]][j]) == T){
-          next
-        }else{
-        hogar[[dic_hogar$Variable[i]]][j] <- subset_df[[2]][which(subset_df[1] == hogar[[dic_hogar$Variable[i]]][j])]
-        }
-      }
-      
-   }else {
-    # If the variable does not have a dictionary, print a message indicating so
-    cat(sprintf("Variable %s does not have a dictionary\n", dic_hogar$Variable[i]))
-  }
- }
-}
-```
-
-Vamos a tratar de realizar un primer análisis exploratorio del DataSet **hogar**. Para ello, en primer lugar observaremos las columnas del DataSet y el tipo de elementos que contienen
-
-```{r}
-str(hogar)
-```
-Además de un alista con las distintas columnas y sus tipos de datos, podemos generar un resumen con distintos estadísticos para cada una de las variables
-
-```{r}
-summary(hogar)
-```
-Esta función también nos permite observar qué columnas contienen NA's, información que nos será útil a futuro de cara a limpiar nuestro DataSet o trabajar con los datos
-
-Como podemos observar, hay muchas columnas que contienen índices que no reflejan la información como tal, si no que hacen referencia a una escala externa, presente en otro documento. Además, hay ciertos nombres de variable que no son del todo claros, los cambiaremos para que sean más representativos. Lo que haremos a continuación será obtener la información real
-
-
-```{r}
 # En este chunK de código voy a poner, comentado para saber que hay que modificarlo o borrarlo, info relevante acerca de los campos, para no tener que mirarla en el fichero director
 
 #IDENTIFICACIÓN DE LA VIVIENDA-----------------------------------------------------------------------------------------------------------
@@ -148,6 +49,7 @@ library(readxl)
 library(dplyr)
 library(tidyr)
 library(lubridate)
+library(caret)
 ```
 
 
@@ -409,6 +311,7 @@ df <- df %>%
   select(-(P02:P19))
 
 NA_analisis_P <- mean(is.na(df[,"P01"]) * 100)
+NA_analisis_P
 
 ```
 
@@ -417,11 +320,11 @@ A continuación se estudian las variables SEXOPAR, NACPAR, ECPAR, HIJOSDEAMBOS, 
 ```{r}
 df_EC <- df %>% 
   select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,ID_VIV) %>% 
-  filter(EC == "Casado /a")
+  filter(EC == 2)
 
 df_EC_alt <- df %>% 
   select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,ID_VIV) %>% 
-  filter(!(EC == "Casado /a")) 
+  filter(!(EC == 2)) 
 
   sapply(df_EC, function(x) {sum(is.na(x)) 
 })
@@ -430,15 +333,6 @@ df_EC_alt <- df %>%
 
 df <- df %>%
   filter(!(EC == 2 & is.na(ECPAR)))
-    
-  df <- df %>%
-  mutate(
-    ECPAR = ifelse(is.na(ECPAR), "No procede", ECPAR),
-    NACPAR = ifelse(is.na(NACPAR), "No procede", NACPAR),
-    SEXOPAR = ifelse(is.na(SEXOPAR), "No procede", SEXOPAR),
-    HIJOSDEAMBOS = ifelse(is.na(HIJOSDEAMBOS), "No procede", HIJOSDEAMBOS)
-  )
-  
 
 ```
 
@@ -449,18 +343,10 @@ Cuando son solteros, divorciados, viudos o separados pueden vivir o no con una p
 ```{r}
 df_EC_2 <- df %>% 
 select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV) %>% 
-  filter(EC == "Casado /a")
+  filter(EC == 2)
 
   sapply(df_EC_2, function(x) {mean(is.na(x)) 
 })
-  
-   df <- df %>%
-  mutate(
-    NHIJOME_NUCLEO = ifelse(is.na(NHIJOME_NUCLEO), "No procede", NHIJOME_NUCLEO),
-    NHIJO_NUCLEO = ifelse(is.na(NHIJO_NUCLEO), "No procede", NHIJO_NUCLEO),
-    SITUNUCLEOFAM = ifelse(is.na(SITUNUCLEOFAM), "No procede", SITUNUCLEOFAM)
-  )
-  
 ```
 
 Al haber eliminado anteriormente las filas de personas casadas sin datos en las categorias anteriores, tampoco aparecen datos ausentes para los casados, para los no casados si hay NA lo cual es lógico pues no procede si una persona no casado no tiene hijos o no pertenece a ninguna de las categorias de SITUNUCLEOFAM, por tanto hacemos como anteriormente.
@@ -468,41 +354,23 @@ Al haber eliminado anteriormente las filas de personas casadas sin datos en las 
 ```{r}
 df_EDAD <- df %>% 
 select(ESTUDIOS,RELACT,EDAD) %>% 
-  filter(EDAD >= 16 )
+  filter(EDAD >= 16)
 
   sapply(df_EDAD, function(x) {mean(is.na(x)) 
 })
   
   df <- df %>%
   mutate(
-    RELACT = ifelse(is.na(RELACT), "No procede", RELACT),
-    ESTUDIOS = ifelse(is.na(ESTUDIOS), "No procede", ESTUDIOS)
+    RELACT = ifelse(is.na(RELACT), "No procede", RELACT)
   )
 ```
 
 Los menores de 16 años no quedan registrados con ningún tipo de estudios ni relación laboral ni tampoco ocupación, por tanto son NA que se explican por ese motivo.
 
 ```{r}
-table(df$NHIJO,df$NHIJO_NUCLEO)
-table(df$NHIJOME_NUCLEO,df$NHIJOMENOR)
-table(df$SITUNUCLEOFAM,df$NUCLEOFAM)
-
-df_HIJOS <- df %>% 
-  select(NHIJO_NUCLEO,NHIJOPAR,ID_VIV)
-
-
-
-df <- df %>% 
-  select(-NHIJO & -NHIJOMENOR & -NUCLEOFAM & -NHIJOPAR)
-
-```
-
-Las variables NHIJO, NHIJOMENOR y NUCLEOFAM, no recogen información adicional respecto a las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITUNUCLEOFAM. Además de estas tres últimas tenemos todos los registros lógicos mientras que de las tres primeras variables tenemos valores ausentes que corresponderían con los valores de las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITUNUCLEOFAM. Por tanto NHIJO, NHIJOMENOR y NUCLEOFAM se pueden eliminar. NHIJO_NUCLEO también engloba a NHIJOPAR entonces también se puede eliminar.
-
-```{r}
 df_extranjeros <- df %>% 
   select(EDADFLLEG,TPOFLLEG,NACIM,TPOFNACESP,NAC) %>% 
-  filter(NACIM != "España" & NAC == "Española")
+  filter(NACIM != 1 & NAC == 1)
 
   sapply(df_extranjeros, function(x) {mean(is.na(x))
 })
@@ -510,18 +378,10 @@ df_extranjeros <- df %>%
     
 df_NACIONALIDAD <- df %>% 
 select(NACNACIMESP,NAC) %>% 
-  filter(!(NAC == "No tiene nacionalidad española"))
+  filter(!(NAC == 3))
 
   sapply(df_NACIONALIDAD, function(x) {mean(is.na(x)) 
 })
-  
-  df <- df %>%
-  mutate(
-    EDADFLLEG = ifelse(is.na(EDADFLLEG), "No procede", EDADFLLEG),
-    TPOFLLEG = ifelse(is.na(TPOFLLEG), "No procede", TPOFLLEG),
-    TPOFNACESP = ifelse(is.na(TPOFNACESP), "No procede", TPOFNACESP),
-    NACNACIMESP = ifelse(is.na(NACNACIMESP), "No procede", NACNACIMESP)
-  )
 ```
 
 Las variables EDADFLLEG y TPOFLLEG miden la edad con la que un extranjero llego a españa y el tiempo que lleva residiendo respectivamente mientras que TPOFNACESP es el tiempo que lleva alguien con la nacionalidad española adquirida, cuando filtramos por no nacionales españoles y gente con nacionalidad española, vemos que desaparecen los NA lo cual es lógico puesto que un ciudadano español nacido en españa ya reside en españa desde que nació y por otro lado, todo ciudadano que no haya querido solicitar la nacionalidad española no le procede contestar cuanto años hace que la adquirio.
@@ -536,14 +396,9 @@ df_OCUPADOS <- df %>%
   sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
 })
   
-  df <- df %>%
-  mutate(
-    OCUPA = ifelse(is.na(OCUPA), "No procede", OCUPA)
-  )
-  
 df_CONSTRUCCION <- df %>% 
   select(ANOANEDI,ANEDI) %>% 
-  filter(ANEDI == "Después del año 2000")
+  filter(ANEDI == 1)
 
   sapply(df_CONSTRUCCION, function(x) {mean(is.na(x)) 
 })
@@ -561,6 +416,7 @@ Que haya muchos NA es comprensible en el apartado de OCUPA puesto que si el entr
 NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
 })
 NA_analisis
+
 ```
 
 Con esto hemos eliminado todos los valores ausentes del conjunto de datos, faltaría codificar todos los cambios realizados de forma que no afecte luego en fases posteriores del analisis.
@@ -575,9 +431,9 @@ df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
 
 columnas_int_factor <- c("TAMANO","REGVI","TIPOVIV","FEDI","NACHO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS","ESTUDIOS","FEDI")
 
-df <- df %>% 
-  mutate(PERIODO = yq(PERIODO)) %>% 
-  mutate_if(is.character, factor) %>% 
+df <- df |> 
+  mutate(PERIODO = yq(PERIODO)) |>  
+  mutate_if(is.character, factor) |> 
   mutate_at(vars(columnas_int_factor), as.factor)
 
 str(df)
@@ -589,8 +445,6 @@ Analizando los levels de las variables factor nos encontramos con países con c�
 df <- df %>% 
   filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
   droplevels()
-
-unique(df$ESTUDIOS)
 
 str(df)
 ```
@@ -631,11 +485,6 @@ Como variables ordinales en este caso podemos considerar a TAMAÑO, ESTUDIOS, TI
 ```{r}
 categoricas_ordinales <- c("TAMANO","TIPOVIV","F_CONS_EDI","ESTUDIOS")
 
-value_to_exclude <- "No procede"  # Valor a excluir
-
-df[, categoricas_ordinales] <- sapply(df[, categoricas_ordinales], function(x) {
-  ifelse(x == value_to_exclude, "No procede", as.numeric(x))
-})
 df[, categoricas_ordinales] <- sapply(df[, categoricas_ordinales], function(x) as.numeric(factor(x)))
 
 str(df)
@@ -656,10 +505,85 @@ df_merged <- cbind(df, df_dummies)
 df_merged <- df_merged %>% 
   select(!(columnas_dummy))
 
+columnas_int_factor <- c("TAMANO","REGVI","TIPOVIV","NAC_HO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS","ESTUDIOS","F_CONS_EDI")
+
+df <- df |> 
+  mutate_at(vars(columnas_int_factor), as.integer)
+
 str(df_merged)
-NA_analisis <- sapply(df_merged, function(x) {mean(is.na(x)) * 100
-})
-NA_analisis 
+str(df)
 ```
 
+### Normalizar las variables númericas
+
+
+```{r}
+
+df_norm <- df_merged |> 
+  select(is.numeric | is.integer) |> 
+  select(-c(ID_VIV,FACCAL)) |> 
+  mutate(across(1:25, ~scale(.)))
+
+```
+
+
+### Detección de outliers
+
+```{r}
+deteccion_outliers <- function(data){
+
+n<-length(data)
+nMiss<-sum(is.na(data)==TRUE)
+
+# p5-p95
+lowLim<-quantile(data,0.05)
+upLim<-quantile(data,0.95)
+minNom<-min(data[which(data>lowLim)])
+maxNom<-max(data[which(data<upLim)])
+nOut<-length(which(data<lowLim | data>upLim))
+
+
+# 3signa
+umbral3s<-mean(data)+3*sd(data)
+
+nOut3s<-length(data[abs(data)>umbral3s])
+lowLim3s<-mean(data)-3*sd(data)
+upLim3s<-mean(data)+3*sd(data)
+minNom<-min(data[(which(data>=lowLim3s))])
+maxNom<-max(data[(which(data<=upLim3s))])
+
+outliers<-data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom)
+
+# Hampel
+
+MADM<-1.4826*median(abs(data-median(data))) # Se puede calcular como mad(data)
+umbral3s<-median(data)+3*MADM
+nOut3s<-length(data[abs(data)>umbral3s])
+lowLim3s<-median(data)-3*MADM
+upLim3s<-median(data)+3*MADM
+minNom<-min(data[(which(data>=lowLim3s))])
+maxNom<-max(data[(which(data<=upLim3s))])
+outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom)
+)
+
+# Boxplot
+
+Q3Q1<-IQR(data)
+Q3<-quantile(data,probs = 0.75)%>%as.numeric
+Q1<-quantile(data,probs = 0.25)%>%as.numeric
+umbralSup<-Q3+1.5*Q3Q1
+umbralInf<-Q1-1.5*Q3Q1
+
+nOut3s<-length(data[data>umbralSup |data<umbralInf])
+lowLim3s<-umbralInf
+upLim3s<-umbralSup
+minNom<-min(data[(which(data>=lowLim3s))])
+maxNom<-max(data[(which(data<=upLim3s))])
+outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
+
+return(outliers)
+
+}
+
+```
 
