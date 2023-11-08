@@ -12,6 +12,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(mapdata)
+library(leaflet)
 ```
 
 ```{r}
@@ -145,7 +146,7 @@ provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
 
 # Function to get latitude and longitude of a province
 get_lat_long <- function(province) {
-  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2")
+  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2", username = "pavima")
   result <- c(aux$lat, aux$lng)
   return(result)
 }
@@ -172,28 +173,197 @@ lat_long_df <- lat_long_df %>%
 write.csv(lat_long_df, file = "./data/geolocalizacion_provincias.csv")
 ```
 
+
 ```{r}
-province_geoloc <- read_csv(file = "./data/geolocalizacion_provincias.csv", show_col_types = F)
-peninsula_geoloc <- province_geoloc %>%
-  filter(Provincias != "Ceuta" & Provincias != "Melilla" & Provincias != "Santa Cruz de Tenerife" & Provincias != "Palmas, Las")
+province_geoloc <- read.csv("./data/geolocalizacion_provincias.csv")
 
-spain <- map_data("world")  # Get Spain data
-spain <- subset(spain, region == "Spain")  # Filter Spain
+selection <- hogar %>%
+  select(IDQ_PV, METROSVI) %>%
+  group_by(IDQ_PV)  %>%
+  summarize(MeanSquareMeters = round(mean(METROSVI, na.rm = TRUE), 2)) %>%
+  mutate(aux = "Media (m²):") %>%
+  mutate(MeanSquareColRef = MeanSquareMeters) %>%
+  unite(MeanSquareM, aux, MeanSquareMeters, sep = " ")
 
-ggplot(data = spain, aes(x = long, y = lat)) +
-  geom_polygon(aes(group = group),fill = "#FAEBD7", color = "black") +
-  coord_cartesian(ylim = c(min(peninsula_geoloc$Latitud)-0.4, max(peninsula_geoloc$Latitud))+0.2, xlim = c(min(peninsula_geoloc$Longitud)-0.4, max(peninsula_geoloc$Longitud)+0.3)) +
-  labs(x = "longitud", y = "Latitud")
+getColor <- colorNumeric(palette = "YlOrRd", domain = selection$MeanSquareColRef)
+
+# Crear un mapa centrado en España
+map_spain <- leaflet() %>%
+  addTiles(urlTemplate = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png') %>%
+  setView(lng = -3.7492, lat = 40.4637, zoom = 6) %>%
+  addCircleMarkers(
+    lat = province_geoloc$Latitud,
+    lng = province_geoloc$Longitud,
+    label = province_geoloc$Provincias,
+    popup = selection$MeanSquareM,
+    popupOptions = popupOptions(closeButton  = F),
+    color = getColor(selection$MeanSquareColRef),
+    group = "Media m² (2020)"
+    )%>%
+
+  addLegend(
+    position = "bottomright",
+    pal = getColor,
+    values = selection$MeanSquareColRef,
+    title = "Media m² (2020)",
+    group = "Media m² (2020)"
+    )%>%
+  
+  addLayersControl(overlayGroups = c("Media m² (2020)"))
+
+# Mostrar el mapa
+map_spain
 ```
 
 ```{r}
-spain <- map_data("world")  # Get Spain data
-spain <- subset(spain, region == "Spain")  # Filter Spain
-ggplot(data = spain, aes(x = long, y = lat, group = group)) +
-  geom_polygon(fill = "#FAEBD7", color = "black")
+# an automatic legend derived from the color palette
+df <- local({
+  n <- 300; x <- rnorm(n); y <- rnorm(n)
+  z <- sqrt(x ^ 2 + y ^ 2); z[sample(n, 10)] <- NA
+  data.frame(x, y, z)
+})
+pal <- colorNumeric("OrRd", df$z)
+leaflet(df) %>%
+  addTiles() %>%
+  addCircleMarkers(~x, ~y, color = ~pal(z), group = "circles") %>%
+  addLegend(pal = pal, values = ~z, group = "circles", position = "bottomleft") %>%
+  addLayersControl(overlayGroups = c("circles"))
+
+# format legend labels
+df <- data.frame(x = rnorm(100), y = rexp(100, 2), z = runif(100))
+pal <- colorBin("PuOr", df$z, bins = c(0, .1, .4, .9, 1))
+leaflet(df) %>%
+  addTiles() %>%
+  addCircleMarkers(~x, ~y, color = ~pal(z), group = "circles") %>%
+  addLegend(pal = pal, values = ~z, group = "circles", position = "bottomleft") %>%
+  addLayersControl(overlayGroups = c("circles"))
+
+leaflet(df) %>%
+  addTiles() %>%
+  addCircleMarkers(~x, ~y, color = ~pal(z), group = "circles") %>%
+  addLegend(pal = pal, values = ~z, labFormat = labelFormat(
+    prefix = "(", suffix = ")%", between = ", ",
+    transform = function(x) 100 * x
+  ),  group = "circles", position = "bottomleft" ) %>%
+  addLayersControl(overlayGroups = c("circles"))
 ```
 
+```{r}
+library(shiny)
+library(leaflet)
 
+ui <- fluidPage(
+  leafletOutput("map"),
+  h3("Variables de interés para caracterizar un hogar"),
+  p("Las cualidades relevantes para descrivbir una casa son:"),
+  tags$ul(
+    tags$li("Ubicación"),
+    tags$li("Tamaño"),
+    tags$li("Número de habitaciones"),
+    tags$li("Número de baños"),
+    tags$li("Edad de la casa"),
+    tags$li("Condición de la casa")
+  ),
+  h3("Referencias"),
+  p("A continuación se proporcionan algunas de las páginas donde visualizar y adquirir casas en España:"),
+  tags$ul(
+    tags$li(a("https://www.tinsa.es", href = "https://www.tinsa.es")),
+    tags$li(a("https://www.homeespana.com/", href ="https://www.homeespana.com/")),
+    tags$li(a("https://www.idealista.com/", href ="https://www.idealista.com/"))
+  )
+)
+
+server <- function(input, output, session) {
+  output$map <- renderLeaflet({map_spain})
+}
+
+shinyApp(ui, server)
+
+
+```
+
+```{r}
+library(shiny)
+library(shinydashboard)
+library(dplyr)
+
+ ui <- dashboardPage(
+    dashboardHeader(title = "Menú dinámico"),
+    dashboardSidebar(
+      sidebarMenu(
+
+        menuItem("Proyecto AED 2023", tabName="title", icon = icon("star"))
+      ),
+      sidebarMenuOutput("menu")
+    ),
+    dashboardBody(tabItems(
+      
+      tabItem(tabName = "info",
+              h1("Información del proyecto"),
+               p("El objetivo de este proyecto es enfrentarse a un problema real de tratamiento de datos que abarque todas las etapas que se describen a lo largo de la asignatura. El proyecto se realiza en grupos de trabajo, lo que  permitire adquirir nuevas compencias relacionadas con el trabajo en equipo, distribución de tareas, puesta en común, resolución de problemas, responsabilidad dentro del grupo, etc."),
+              fluidPage()
+      ),
+      tabItem(tabName = "plots", h2("Mapa interactivo"),
+              fluidRow(column(width = 12, class = "well",
+                              leafletOutput("map")))
+      ),
+      tabItem(tabName = "dashboard", h2("Contenido del dataset hogar"),
+              DT::dataTableOutput("table1")),
+      
+      tabItem(tabName = "dashboard2", h2("Contenido del dataset personas"),
+              DT::dataTableOutput("table2")))
+    )
+ )
+
+
+
+  server <- function(input, output, session) {
+
+    output$menu <- renderMenu({
+      sidebarMenu(
+        menuItem("Información", tabName = "info", icon = icon("info")),
+        
+        menuItem("Menú del Mapa", tabName = "plots", icon = icon("map")),
+
+        menuItem("Datos de hogares", tabName="dashboard", icon = icon("table")),
+        
+        menuItem("Datos de personas", tabName="dashboard2", icon = icon("table"))
+      )
+    })
+
+   output$table1 <- DT::renderDataTable({
+    DT::datatable(hogar, options = list(scrollX = TRUE, scrollY = TRUE))
+  })
+    
+    output$table2 <- DT::renderDataTable({
+    DT::datatable(persona, options = list(scrollX = TRUE, scrollY = TRUE))
+  })
+    
+    output$map <- renderLeaflet({map_spain})
+
+  }
+
+  shinyApp(ui, server)
+```
+
+```{r}
+library(shiny)
+library(DT)
+
+ui <- fluidPage(
+  DT::dataTableOutput("table")
+)
+
+server <- function(input, output) {
+  output$table <- DT::renderDataTable({
+    # Replace "data" with your data frame
+    DT::datatable(hogar, options = list(scrollX = TRUE, scrollY = TRUE))
+  })
+}
+
+shinyApp(ui, server)
+
+```
 
 
 
