@@ -55,7 +55,9 @@ library(caret)
 
 ```{r}
 hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
+hogar_2 <- hogar
 persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
+persona_2 <- persona
 ```
 
 Tenemos un diccionario para leer los datos, lo vamos a intentar usar para leer los datos con el formato deseado:
@@ -107,8 +109,8 @@ J <- (!is.na(tab2$Desc))
 tab2 <- tab2[J, ]
 tab2_2 <- tab2[tab2$Var %in% c("TIPOHO"),]
 
-
-tab <- full_join(tab1, tab2_2)
+tab <- full_join(tab1, tab2)
+tab_2 <- full_join(tab1, tab2_2)
 
 tab$Cod <- as.numeric(as.character(tab$Cod))
 
@@ -122,6 +124,20 @@ for (i in names(hogar)){
       #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
       cod <- which(hogar[,i] == tab$Cod[pos[j]])
       hogar[cod, i] <- tab$Desc[pos[j]]
+    }
+  }
+}
+
+for (i in names(hogar_2)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_2$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(hogar_2[,i] == tab_2$Cod[pos[j]])
+      hogar_2[cod, i] <- tab_2$Desc[pos[j]]
     }
   }
 }
@@ -260,7 +276,7 @@ tab_personas_ok <- full_join(tab_personas, tab3_personas)
 tab_personas_ok_2 <- tab_personas_ok[tab_personas_ok$Var %in% c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET"),]
 tab_personas_ok_2$Cod <- as.numeric(as.character(tab_personas_ok_2$Cod))
 
-for (i in names(persona)){
+for (i in names(persona_2)){
   #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
   pos <- which(tab_personas_ok_2$Var == i)
   #el if es porque hay variables que no están en la tabla
@@ -268,17 +284,49 @@ for (i in names(persona)){
     #ahora tenemos que sustituir el código por lo que toca
     for (j in seq(1, length(pos))){
       #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
-      cod <- which(persona[,i] == tab_personas_ok_2$Cod[pos[j]])
-      persona[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
+      cod <- which(persona_2[,i] == tab_personas_ok_2$Cod[pos[j]])
+      persona_2[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
     }
   }
 }
 
+for (i in names(persona)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona[,i] == tab_personas_ok$Cod[pos[j]])
+      persona[cod, i] <- tab_personas_ok$Desc[pos[j]]
+    }
+  }
+}
 ```
 
 ```{r}
-df <- full_join(hogar,persona)
-rm(list=setdiff(ls(), "df"))
+df <- full_join(persona,hogar, by="ID_VIV")
+df_num <- full_join(persona_2,hogar_2, by = "ID_VIV")
+
+df <- df %>% 
+  select(-PERIODO.y,-TAMANO.y,-IDQ_PV.y,-CA.y,-FACCAL.y) %>% 
+  rename(PERIODO = PERIODO.x,
+         TAMANO = TAMANO.x,
+         IDQ_PV = IDQ_PV.x,
+         CA = CA.x,
+         FACCAL = FACCAL.x)
+
+
+df_num <- df_num %>% 
+  select(-PERIODO.y,-TAMANO.y,-IDQ_PV.y,-CA.y,-FACCAL.y) %>% 
+    rename(PERIODO = PERIODO.x,
+         TAMANO = TAMANO.x,
+         IDQ_PV = IDQ_PV.x,
+         CA = CA.x,
+         FACCAL = FACCAL.x)
+
+rm(list=setdiff(ls(), c("df","df_num")))
 ```
 
 
@@ -318,36 +366,52 @@ NA_analisis_P
 A continuación se estudian las variables SEXOPAR, NACPAR, ECPAR, HIJOSDEAMBOS, se van a estudiar juntas porque viendo el porcentaje de NA's coincide en los cuatro casos de un 50.236605%, esto también sucede para las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITNUCLEOFAM con un 44.979064%, ESTUDIOS y RELACT con un 14.990599% y NHIJO, NHIJOMENOR y NUCLEOFAM con un 16.580078%.
 
 ```{r}
+df_EC_2 <- df %>% 
+select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHIJOMENOR)  
+
+
+  sapply(df_EC_2, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    NHIJOME_NUCLEO = ifelse(is.na(NHIJOME_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJO_NUCLEO = ifelse(is.na(NHIJO_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJO_NUCLEO),
+    SITUNUCLEOFAM = ifelse(is.na(SITUNUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", SITUNUCLEOFAM),
+    NHIJOMENOR = ifelse(is.na(NHIJOMENOR) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJOMENOR = ifelse(NHIJOME_NUCLEO == "Sin hijos/Sin pareja", NHIJOME_NUCLEO, NHIJOMENOR), 
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge de distinto sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho de distinto sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho del mismo sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge del mismo sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM)
+  )
+    
 df_EC <- df %>% 
-  select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,ID_VIV) %>% 
-  filter(EC == 2)
+  select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
 
-df_EC_alt <- df %>% 
-  select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,ID_VIV) %>% 
-  filter(!(EC == 2)) 
-
-  sapply(df_EC, function(x) {sum(is.na(x)) 
-})
-    sapply(df_EC_alt, function(x) {mean(is.na(x)) 
-})
-
-df <- df %>%
-  filter(!(EC == 2 & is.na(ECPAR)))
-
+  
+   df <- df %>%
+  mutate(
+    ECPAR = ifelse(is.na(ECPAR), "Sin pareja", ECPAR),
+    NACPAR = ifelse(is.na(NACPAR), "Sin pareja", NACPAR),
+    HIJOSDEAMBOS = ifelse(is.na(HIJOSDEAMBOS), "Sin pareja", HIJOSDEAMBOS),
+    SEXOPAR = ifelse(is.na(SEXOPAR), "Sin pareja", SEXOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo sin hijos", 0, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos todos comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos no comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Sin pareja", "Sin pareja", NHIJOPAR),
+    NHIJO = ifelse(NHIJO_NUCLEO == "Sin hijos/Sin pareja", "Sin hijos/Sin pareja",NHIJO),
+    NHIJO = ifelse(is.na(NHIJO), NHIJO_NUCLEO,NHIJO)
+    )
+  
 ```
 
 Cuando establecemos EC == casados al ser pareja, deberían de aparecer los registros sobre su pareja(ECPAR, NACPAR, SEXOPAR) y HIJOSDEAMBOS, tengan o no tengan, sin embargo en el 3.38% de los casos no es así, posiblemente sea porque son datos perdidos.
 
 Cuando son solteros, divorciados, viudos o separados pueden vivir o no con una pareja entonces es lógico que aparezcan datos ausentes, una opción sería rellenar con NO procede los datos ausentes previo a realizar el codificado.
 
-```{r}
-df_EC_2 <- df %>% 
-select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV) %>% 
-  filter(EC == 2)
-
-  sapply(df_EC_2, function(x) {mean(is.na(x)) 
-})
-```
 
 Al haber eliminado anteriormente las filas de personas casadas sin datos en las categorias anteriores, tampoco aparecen datos ausentes para los casados, para los no casados si hay NA lo cual es lógico pues no procede si una persona no casado no tiene hijos o no pertenece a ninguna de las categorias de SITUNUCLEOFAM, por tanto hacemos como anteriormente.
 
@@ -361,7 +425,8 @@ select(ESTUDIOS,RELACT,EDAD) %>%
   
   df <- df %>%
   mutate(
-    RELACT = ifelse(is.na(RELACT), "No procede", RELACT)
+    RELACT = ifelse(is.na(RELACT), "No procede", RELACT),
+    ESTUDIOS = ifelse(is.na(ESTUDIOS), "No procede", ESTUDIOS)
   )
 ```
 
@@ -369,19 +434,33 @@ Los menores de 16 años no quedan registrados con ningún tipo de estudios ni re
 
 ```{r}
 df_extranjeros <- df %>% 
-  select(EDADFLLEG,TPOFLLEG,NACIM,TPOFNACESP,NAC) %>% 
-  filter(NACIM != 1 & NAC == 1)
+  select(EDADFLLEG,TPOFLLEG,NACIM,TPOFNACESP,NAC) 
+
 
   sapply(df_extranjeros, function(x) {mean(is.na(x))
 })
   
-    
+  df <- df %>%
+  mutate(
+    EDADFLLEG = ifelse(is.na(EDADFLLEG), "Nacido en España", EDADFLLEG),
+    TPOFLLEG = ifelse(is.na(TPOFLLEG), "Nacido en España", TPOFLLEG),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española", "Nacionalidad española de nacimiento", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "No tiene nacionalidad española", "No tiene nacionalidad española", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española y otras", "Nacionalidad española de nacimiento", TPOFNACESP)
+  )
+
 df_NACIONALIDAD <- df %>% 
 select(NACNACIMESP,NAC) %>% 
-  filter(!(NAC == 3))
+  filter(!(NAC == "No tiene nacionalidad española"))
 
   sapply(df_NACIONALIDAD, function(x) {mean(is.na(x)) 
 })
+  
+   df <- df %>%
+  mutate(
+    NACNACIMESP = ifelse(is.na(NACNACIMESP), "No tiene nacionalidad española", NACNACIMESP),
+  )
+  
 ```
 
 Las variables EDADFLLEG y TPOFLLEG miden la edad con la que un extranjero llego a españa y el tiempo que lleva residiendo respectivamente mientras que TPOFNACESP es el tiempo que lleva alguien con la nacionalidad española adquirida, cuando filtramos por no nacionales españoles y gente con nacionalidad española, vemos que desaparecen los NA lo cual es lógico puesto que un ciudadano español nacido en españa ya reside en españa desde que nació y por otro lado, todo ciudadano que no haya querido solicitar la nacionalidad española no le procede contestar cuanto años hace que la adquirio.
@@ -396,9 +475,14 @@ df_OCUPADOS <- df %>%
   sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
 })
   
+    df <- df %>%
+  mutate(
+    OCUPA = ifelse(is.na(OCUPA), "No trabaja", OCUPA)
+  )
+  
 df_CONSTRUCCION <- df %>% 
   select(ANOANEDI,ANEDI) %>% 
-  filter(ANEDI == 1)
+  filter(ANEDI == "Después del año 2000")
 
   sapply(df_CONSTRUCCION, function(x) {mean(is.na(x)) 
 })
@@ -426,15 +510,12 @@ Con esto hemos eliminado todos los valores ausentes del conjunto de datos, falta
 La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque ahora aparece como una variable de tipo numérico. Por otro lado hemos estado trabajando con una gran cantidad de variables de tipo factor que actualmente aparecen como de tipo caracter y deben ser cambiadas, en la fase de codificación se pasarán a númerico para poder usados en análisis de correlación, modelos de regresión etc.
 
 ```{r}
-rm(list=setdiff(ls(), "df"))
+rm(list=setdiff(ls(), c("df","df_num")))
 df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
-
-columnas_int_factor <- c("TAMANO","REGVI","TIPOVIV","FEDI","NACHO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS","ESTUDIOS","FEDI")
 
 df <- df |> 
   mutate(PERIODO = yq(PERIODO)) |>  
-  mutate_if(is.character, factor) |> 
-  mutate_at(vars(columnas_int_factor), as.factor)
+  mutate_if(is.character, factor)
 
 str(df)
 ```
@@ -505,7 +586,7 @@ df_merged <- cbind(df, df_dummies)
 df_merged <- df_merged %>% 
   select(!(columnas_dummy))
 
-columnas_int_factor <- c("TAMANO","REGVI","TIPOVIV","NAC_HO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS","ESTUDIOS","F_CONS_EDI")
+columnas_int_factor <- c("TAMANO","REGVI","TIPOVIV","NAC_HO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS","ESTUDIOS","F_CONS_EDI","HABVI","METROSVI","ASEOS","DORMITORIOS","COMEDORES","TRASTEROS","OTRASHAB")
 
 df <- df |> 
   mutate_at(vars(columnas_int_factor), as.integer)
@@ -543,15 +624,17 @@ df_norm <- df_merged |>
 
 
 ```{r}
-df_merged_1 <- df %>% 
-  select(c(TAMANO,PROVINCIA,CA,ASEOS,COMEDORES,TRASTEROS,OTRASHAB,HABVI,METROSVI,TIPOVIV,F_CONS_EDI,REGVI,NPV)) %>% 
-  filter(NPV == 1) %>% 
-  select(!c(CA,PROVINCIA,NPV))
+df_merged_1 <- df_merged %>% 
+  select(c(TAMANO,PROVINCIA,CA,ASEOS,COMEDORES,TRASTEROS,OTRASHAB,HABVI,METROSVI,TIPOVIV,F_CONS_EDI,REGVI.1,REGVI.2,REGVI.3,REGVI.4,NPV,COCINA.1,COCINA.6)) %>% 
+  filter(NPV == 1)
 
-df_norm <- df_norm %>% 
-  select(!c(PROVINCIA,CA))
+df_merged_2 <- df_merged %>% 
+  select(c(TAMANO,PROVINCIA,CA,ASEOS,ESTUDIOS,COMEDORES,TRASTEROS,OTRASHAB,HABVI,METROSVI,TIPOVIV,F_CONS_EDI,REGVI.1,REGVI.2,REGVI.3,REGVI.4,NPV,COCINA.1,COCINA.6,)) %>% 
+  filter(NPV == 1)
 
-cor(df_merged_1,method = "pearson")
+df_merged_3 <- df_merged %>% 
+  select(c(EC.1,EC.2,EC.3,EC.4,EC.5,METROSVI,)) %>% 
+  filter(NPV == 1)
 
 ```
 
@@ -612,8 +695,15 @@ outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOu
 return(outliers)
 
 }
+df_por_familia <- df %>% 
+  filter(NPV == 1)
 
-deteccion_outliers(df_merged_1$HABVI)
+deteccion_outliers(df_por_familia$DENSIDADVI)
 
+```
+
+### Anomalías
+
+```{r}
 ```
 
