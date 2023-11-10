@@ -42,7 +42,7 @@ library(readxl)
 ```
 
 
-```{r}
+```{r include=FALSE}
 #librerias
 library(readr)
 library(readxl)
@@ -61,7 +61,8 @@ persona_2 <- persona
 ```
 
 Tenemos un diccionario para leer los datos, lo vamos a intentar usar para leer los datos con el formato deseado:
-```{r variables de hogar a caracter}
+
+```{r variables de hogar a caracter, include=FALSE}
 dic <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
 
 tab1 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
@@ -113,6 +114,7 @@ tab <- full_join(tab1, tab2)
 tab_2 <- full_join(tab1, tab2_2)
 
 tab$Cod <- as.numeric(as.character(tab$Cod))
+tab_2$Cod <- as.numeric(as.character(tab_2$Cod))
 
 for (i in names(hogar)){
   #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
@@ -144,7 +146,7 @@ for (i in names(hogar_2)){
 
 ```
 
-```{r df personas}
+```{r df personas, include=FALSE}
 dic_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
 
 tab1_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
@@ -273,6 +275,8 @@ for (i in (1:length(ind))){
 
 tab_personas <- full_join(tab1_personas, tab2_personas_ok_ok)
 tab_personas_ok <- full_join(tab_personas, tab3_personas)
+tab_personas_ok$Cod <- as.numeric(as.character(tab_personas_ok$Cod))
+
 tab_personas_ok_2 <- tab_personas_ok[tab_personas_ok$Var %in% c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET"),]
 tab_personas_ok_2$Cod <- as.numeric(as.character(tab_personas_ok_2$Cod))
 
@@ -306,25 +310,10 @@ for (i in names(persona)){
 ```
 
 ```{r}
-df <- full_join(persona,hogar, by="ID_VIV")
-df_num <- full_join(persona_2,hogar_2, by = "ID_VIV")
+df <- full_join(hogar,persona)
+df_num <- full_join(hogar_2,persona_2)
 
-df <- df %>% 
-  select(-PERIODO.y,-TAMANO.y,-IDQ_PV.y,-CA.y,-FACCAL.y) %>% 
-  rename(PERIODO = PERIODO.x,
-         TAMANO = TAMANO.x,
-         IDQ_PV = IDQ_PV.x,
-         CA = CA.x,
-         FACCAL = FACCAL.x)
-
-
-df_num <- df_num %>% 
-  select(-PERIODO.y,-TAMANO.y,-IDQ_PV.y,-CA.y,-FACCAL.y) %>% 
-    rename(PERIODO = PERIODO.x,
-         TAMANO = TAMANO.x,
-         IDQ_PV = IDQ_PV.x,
-         CA = CA.x,
-         FACCAL = FACCAL.x)
+unique(df$IDQ_PV.x)
 
 rm(list=setdiff(ls(), c("df","df_num")))
 ```
@@ -513,7 +502,7 @@ La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque
 rm(list=setdiff(ls(), c("df","df_num")))
 df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
 
-df <- df |> 
+df |> 
   mutate(PERIODO = yq(PERIODO)) |>  
   mutate_if(is.character, factor)
 
@@ -572,16 +561,16 @@ str(df)
 ```
 
 ```{r}
-columnas_dummy <- c("REGVI","NAC_HO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS")
+columnas_dummy <- c("REGVI","NACHO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS")
 
 
 # Create dummy variables
-dummy <- dummyVars(paste("~", paste(columnas_dummy,collapse = " + ")), data = df)
+dummy <- dummyVars(paste("~", paste(columnas_dummy,collapse = " + ")), data = df_num)
 
 # Apply the dummy variables to the dataframe
-df_dummies <- data.frame(predict(dummy, newdata = df))
+df_dummies <- data.frame(predict(dummy, newdata = df_num))
 
-df_merged <- cbind(df, df_dummies)
+df_merged <- cbind(df_num, df_dummies)
 
 df_merged <- df_merged %>% 
   select(!(columnas_dummy))
@@ -624,17 +613,8 @@ df_norm <- df_merged |>
 
 
 ```{r}
-df_merged_1 <- df_merged %>% 
-  select(c(TAMANO,PROVINCIA,CA,ASEOS,COMEDORES,TRASTEROS,OTRASHAB,HABVI,METROSVI,TIPOVIV,F_CONS_EDI,REGVI.1,REGVI.2,REGVI.3,REGVI.4,NPV,COCINA.1,COCINA.6)) %>% 
-  filter(NPV == 1)
 
-df_merged_2 <- df_merged %>% 
-  select(c(TAMANO,PROVINCIA,CA,ASEOS,ESTUDIOS,COMEDORES,TRASTEROS,OTRASHAB,HABVI,METROSVI,TIPOVIV,F_CONS_EDI,REGVI.1,REGVI.2,REGVI.3,REGVI.4,NPV,COCINA.1,COCINA.6,)) %>% 
-  filter(NPV == 1)
 
-df_merged_3 <- df_merged %>% 
-  select(c(EC.1,EC.2,EC.3,EC.4,EC.5,METROSVI,)) %>% 
-  filter(NPV == 1)
 
 ```
 
