@@ -313,8 +313,6 @@ for (i in names(persona)){
 df <- full_join(hogar,persona)
 df_num <- full_join(hogar_2,persona_2)
 
-unique(df$IDQ_PV.x)
-
 rm(list=setdiff(ls(), c("df","df_num")))
 ```
 
@@ -342,9 +340,13 @@ Las primeras variables que analizaré son P01:P19, estas indican las relaciones 
 
 ```{r}
 df[ ,"P01"][which(df[,"NPV"] == 1)] <- "Miembro encuestado"
+df_num[ ,"P01"][which(df_num[,"NPV"] == 1)] <- "Miembro encuestado"
 
 
 df <- df %>% 
+  select(-(P02:P19))
+
+df_num <- df_num %>% 
   select(-(P02:P19))
 
 NA_analisis_P <- mean(is.na(df[,"P01"]) * 100)
@@ -481,6 +483,9 @@ table(df$FEDI,df$ANEDI)
 df <- df %>% 
   select(-ANOANEDI & -ANEDI)
 
+df_num <- df_num %>% 
+  select(-ANOANEDI & -ANEDI)
+
 ```
 
 Que haya muchos NA es comprensible en el apartado de OCUPA puesto que si el entrevistado no se encuentra ocupado no puede contestar nada, respecto a ANONEDI solo recoge datos de construcción de vivienda a partir de los años 2000, por lo que no aporta información adicional relevante respecto a las variables ANEDI y FEDI, de hecho, ANEDI tampoco aporta más información que la variable FEDI, por lo que estas dos variables se pueden suprimir.
@@ -501,9 +506,15 @@ La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque
 ```{r}
 rm(list=setdiff(ls(), c("df","df_num")))
 df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
+df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
 
-df |> 
-  mutate(PERIODO = yq(PERIODO)) |>  
+df <- df |> 
+  mutate(PERIODO = yq(PERIODO)) %>% 
+  mutate_if(is.character, factor)
+
+
+df_num <- df_num |> 
+  mutate(PERIODO = yq(PERIODO)) %>% 
   mutate_if(is.character, factor)
 
 str(df)
@@ -516,6 +527,9 @@ df <- df %>%
   filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
   droplevels()
 
+df_num <- df_num %>% 
+  filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  droplevels()
 str(df)
 ```
 
@@ -553,49 +567,25 @@ Las variables a codificar son aquellas de tipo categórico. Las variables categ�
 Como variables ordinales en este caso podemos considerar a TAMAÑO, ESTUDIOS, TIPOVIV, FEDI, mientras que el resto son cardinales.
 
 ```{r}
-categoricas_ordinales <- c("TAMANO","TIPOVIV","F_CONS_EDI","ESTUDIOS")
-
-df[, categoricas_ordinales] <- sapply(df[, categoricas_ordinales], function(x) as.numeric(factor(x)))
-
-str(df)
-```
-
-```{r}
 columnas_dummy <- c("REGVI","NACHO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS")
 
+df_num_fctr <- df_num %>% 
+  select(columnas_dummy) %>% 
+    mutate_all(factor)
 
-# Create dummy variables
-dummy <- dummyVars(paste("~", paste(columnas_dummy,collapse = " + ")), data = df_num)
 
-# Apply the dummy variables to the dataframe
-df_dummies <- data.frame(predict(dummy, newdata = df_num))
+dummy <- dummyVars(paste("~", paste(columnas_dummy,collapse = " + ")), data = df_num_fctr)
+
+df_dummies <- data.frame(predict(dummy, newdata = df_num_fctr))
 
 df_merged <- cbind(df_num, df_dummies)
 
 df_merged <- df_merged %>% 
   select(!(columnas_dummy))
 
-columnas_int_factor <- c("TAMANO","REGVI","TIPOVIV","NAC_HO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS","ESTUDIOS","F_CONS_EDI","HABVI","METROSVI","ASEOS","DORMITORIOS","COMEDORES","TRASTEROS","OTRASHAB")
-
-df <- df |> 
-  mutate_at(vars(columnas_int_factor), as.integer)
-
-str(df_merged)
-str(df)
+df <- df %>% 
+  mutate(METROSVI = as.numeric(METROSVI), EDAD = as.numeric(EDAD))
 ```
-
-### Normalizar las variables númericas
-
-
-```{r}
-
-df_norm <- df_merged |> 
-  select(is.numeric | is.integer) |> 
-  select(-c(ID_VIV,FACCAL)) |> 
-  mutate(across(1:25, ~scale(.)))
-
-```
-
 
 ### Casos posibles a estudiar
 
@@ -611,16 +601,45 @@ df_norm <- df_merged |>
 
 6. Existe alguna diferencia entre los extranjeros nacionalizados y los no nacionalizados?
 
+### Anomalías
 
 ```{r}
 
+View(df)
+str(df)
 
+df %>% 
+  count(DORMITORIOS)
+df %>% 
+  count(ASEOS)
+df %>% 
+  count(COMEDORES)
+df %>% 
+  count(TRASTEROS)
+df %>% 
+  count(OTRASHAB)
 
+df_filtrado <- df %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% filter(NPV == 1)
+
+df %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% filter(NPV == 1) %>% count(TIPOVIV)
 ```
 
 ### Detección de outliers
 
 ```{r}
+
+boxplot(df_filtrado$METROSVI,
+  ylab = "Metros vivienda",
+  main = "Metros de las viviendas"
+)
+
+boxplot(df_filtrado$DENSIDADVI,
+  ylab = "Densidad vivienda",
+  main = "Densidad de las viviendas por persona"
+)
+
 deteccion_outliers <- function(data){
 
 n<-length(data)
@@ -633,6 +652,7 @@ minNom<-min(data[which(data>lowLim)])
 maxNom<-max(data[which(data<upLim)])
 nOut<-length(which(data<lowLim | data>upLim))
 
+outliers<-data.frame(method='p5-p95', n=n, nMiss=nMiss, nOut=nOut, lowLim=lowLim,upLim=upLim,minNom=minNom,maxNom=maxNom)
 
 # 3signa
 umbral3s<-mean(data)+3*sd(data)
@@ -643,19 +663,18 @@ upLim3s<-mean(data)+3*sd(data)
 minNom<-min(data[(which(data>=lowLim3s))])
 maxNom<-max(data[(which(data<=upLim3s))])
 
-outliers<-data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom)
+outliers<-rbind(outliers,data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
 
 # Hampel
 
 MADM<-1.4826*median(abs(data-median(data))) # Se puede calcular como mad(data)
-umbral3s<-median(data)+3*MADM
-nOut3s<-length(data[abs(data)>umbral3s])
-lowLim3s<-median(data)-3*MADM
-upLim3s<-median(data)+3*MADM
-minNom<-min(data[(which(data>=lowLim3s))])
-maxNom<-max(data[(which(data<=upLim3s))])
-outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom)
-)
+umbralH<-median(data)+3*MADM
+nOutH<-length(data[abs(data)>umbralH])
+lowLimH<-median(data)-3*MADM
+upLimH<-median(data)+3*MADM
+minNom<-min(data[(which(data>=lowLimH))])
+maxNom<-max(data[(which(data<=upLimH))])
+outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOutH, lowLim=lowLimH,upLim=upLimH,minNom=minNom,maxNom=maxNom))
 
 # Boxplot
 
@@ -665,25 +684,37 @@ Q1<-quantile(data,probs = 0.25)%>%as.numeric
 umbralSup<-Q3+1.5*Q3Q1
 umbralInf<-Q1-1.5*Q3Q1
 
-nOut3s<-length(data[data>umbralSup |data<umbralInf])
-lowLim3s<-umbralInf
-upLim3s<-umbralSup
-minNom<-min(data[(which(data>=lowLim3s))])
-maxNom<-max(data[(which(data<=upLim3s))])
-outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
+nOutB<-length(data[data>umbralSup |data<umbralInf])
+lowLimB<-umbralInf
+upLimB<-umbralSup
+minNom<-min(data[(which(data>=lowLimB))])
+maxNom<-max(data[(which(data<=upLimB))])
+outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOutB, lowLim=lowLimB,upLim=upLimB,minNom=minNom,maxNom=maxNom))
 
 return(outliers)
 
 }
-df_por_familia <- df %>% 
-  filter(NPV == 1)
 
-deteccion_outliers(df_por_familia$DENSIDADVI)
+deteccion_outliers(df_filtrado$METROSVI)
+#Mas razonable acorde a tres sigma
+deteccion_outliers(df_filtrado$DENSIDADVI)
+#Mas razonable acorde a boxplot
 
+
+df_filtrado <- df %>%
+filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_outliers <- df %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+
+df_filtrado_num <- df_merged %>%
+filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_filtrado_num_outliers <- df_merged %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+  
+
+rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado","df_filtrado_num")))
 ```
 
-### Anomalías
-
-```{r}
-```
 
