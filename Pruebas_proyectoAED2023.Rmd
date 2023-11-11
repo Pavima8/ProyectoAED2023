@@ -286,6 +286,7 @@ shinyApp(ui, server)
 library(shiny)
 library(shinydashboard)
 library(dplyr)
+library(DT)
 
  ui <- dashboardPage(
     dashboardHeader(title = "Menú dinámico"),
@@ -346,24 +347,6 @@ library(dplyr)
   shinyApp(ui, server)
 ```
 
-```{r}
-library(shiny)
-library(DT)
-
-ui <- fluidPage(
-  DT::dataTableOutput("table")
-)
-
-server <- function(input, output) {
-  output$table <- DT::renderDataTable({
-    # Replace "data" with your data frame
-    DT::datatable(hogar, options = list(scrollX = TRUE, scrollY = TRUE))
-  })
-}
-
-shinyApp(ui, server)
-
-```
 
 
 
