@@ -629,7 +629,7 @@ filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI
 ### Detección de outliers
 
 ```{r}
-
+rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado")))
 boxplot(df_filtrado$METROSVI,
   ylab = "Metros vivienda",
   main = "Metros de las viviendas"
@@ -713,8 +713,6 @@ filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <
 df_filtrado_num_outliers <- df_merged %>%
 filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
   
-
-rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado","df_filtrado_num")))
 ```
 
 
