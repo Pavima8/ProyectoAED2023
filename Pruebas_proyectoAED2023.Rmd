@@ -193,6 +193,508 @@ ggplot(data = spain, aes(x = long, y = lat, group = group)) +
   geom_polygon(fill = "#FAEBD7", color = "black")
 ```
 
+```{r include=FALSE}
+#librerias
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(caret)
+```
+
+
+```{r}
+hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
+hogar_2 <- hogar
+persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
+persona_2 <- persona
+```
+
+Tenemos un diccionario para leer los datos, lo vamos a intentar usar para leer los datos con el formato deseado:
+
+```{r variables de hogar a caracter, include=FALSE}
+dic <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
+
+tab1 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab1) <- c("Cod", "Desc", "Var")
+ind <- which(tab1$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1[(ind[i]-1):nrow(tab1), "Var"] <- tab1[ind[i]-1, 3]
+    tab1[(ind[i]-1):nrow(tab1), "New_Var"] <- tab1[ind[i]-1, 1]
+  } else {
+    tab1[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1[ind[i]-1, 3]
+    tab1[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab1$Cod != "Código") & tab1$Cod != "Código")
+tab1 <- tab1[I, ]
+
+J <- (!is.na(tab1$Desc))
+tab1 <- tab1[J, ]
+
+tab2 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab2) <- c("Cod", "Desc", "Var")
+ind <- which(tab2$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2[(ind[i]-1):nrow(tab2), "Var"] <- tab2[ind[i]-1, 3]
+    tab2[(ind[i]-1):nrow(tab2), "New_Var"] <- tab2[ind[i]-1, 1]
+  } else {
+    tab2[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2[ind[i]-1, 3]
+    tab2[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2$Cod != "Código") & tab2$Cod != "Código")
+tab2 <- tab2[I, ]
+
+J <- (!is.na(tab2$Desc))
+tab2 <- tab2[J, ]
+tab2_2 <- tab2[tab2$Var %in% c("TIPOHO"),]
+
+tab <- full_join(tab1, tab2)
+tab_2 <- full_join(tab1, tab2_2)
+
+tab$Cod <- as.numeric(as.character(tab$Cod))
+tab_2$Cod <- as.numeric(as.character(tab_2$Cod))
+
+for (i in names(hogar)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(hogar[,i] == tab$Cod[pos[j]])
+      hogar[cod, i] <- tab$Desc[pos[j]]
+    }
+  }
+}
+
+for (i in names(hogar_2)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_2$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(hogar_2[,i] == tab_2$Cod[pos[j]])
+      hogar_2[cod, i] <- tab_2$Desc[pos[j]]
+    }
+  }
+}
+
+```
+
+```{r df personas, include=FALSE}
+dic_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
+
+tab1_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab1_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab1_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1_personas[(ind[i]-1):nrow(tab1_personas), "Var"] <- tab1_personas[ind[i]-1, 3]
+    tab1_personas[(ind[i]-1):nrow(tab1_personas), "New_Var"] <- tab1_personas[ind[i]-1, 1]
+  } else {
+    tab1_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1_personas[ind[i]-1, 3]
+    tab1_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab1_personas$Cod != "Código") & tab1_personas$Cod != "Código")
+tab1_personas <- tab1_personas[I, ]
+
+J <- (!is.na(tab1_personas$Desc))
+tab1_personas <- tab1_personas[J, ]
+
+tab2_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab2_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab2_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2_personas[(ind[i]-1):nrow(tab2_personas), "Var"] <- tab2_personas[ind[i]-1, 3]
+    tab2_personas[(ind[i]-1):nrow(tab2_personas), "New_Var"] <- tab2_personas[ind[i]-1, 1]
+  } else {
+    tab2_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2_personas[ind[i]-1, 3]
+    tab2_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2_personas$Cod != "Código") & tab2_personas$Cod != "Código")
+tab2_personas <- tab2_personas[I, ]
+
+J <- (!is.na(tab2_personas$Desc))
+tab2_personas <- tab2_personas[J, ]
+
+#Hay variables que como "NACIM *** (2 veces más)", no detectan correctamente las variables, he tenido que hacer este sistema para arreglarlo
+
+tab2_personas[tab2_personas == "NACIM *** (2 veces más)"] <- "NACIM"
+
+tab2_personas_2_3 <- tab2_personas[19:20,]
+variables_NACIM <- c("NACIM","NACIMPADRE","NACIMMADRE")
+tab2_personas_2_3 <- do.call(rbind, replicate(3, tab2_personas_2_3, simplify = FALSE))
+tab2_personas_2_3$Var[which(tab2_personas_2_3[,"Desc"] == "España")] <-  variables_NACIM
+
+ind <- which(tab2_personas_2_3[,"Desc"] == "España")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab2_personas_2_3$Var[ind[i]:(ind[i+1] - 1)] <- variables_NACIM[i]
+}
+  else{
+  tab2_personas_2_3$Var[ind[i]:nrow(tab2_personas_2_3)] <- variables_NACIM[i]  
+  }
+}
+
+tab2_personas[tab2_personas == "P01 *** (18 veces más)"] <- "P01"
+
+tab2_personas_2 <- tab2_personas[26:33,]
+vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
+tab2_personas_2 <- do.call(rbind, replicate(19, tab2_personas_2, simplify = FALSE))
+tab2_personas_2$Var[which(tab2_personas_2[,"Desc"] == "Padre/Madre")] <-  vector_p
+
+ind <- which(tab2_personas_2[,"Desc"] == "Padre/Madre")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab2_personas_2$Var[ind[i]:(ind[i+1] - 1)] <- vector_p[i]
+}
+  else{
+  tab2_personas_2$Var[ind[i]:nrow(tab2_personas_2)] <- vector_p[i]  
+  }
+}
+
+tab2_personas_ok <- full_join(tab2_personas,tab2_personas_2)
+tab2_personas_ok_ok <- full_join(tab2_personas_ok,tab2_personas_2_3)
+
+tab3_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas3", col_names = FALSE, skip = 4)
+
+# vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab3_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab3_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab3_personas[(ind[i]-1):nrow(tab3_personas), "Var"] <- tab3_personas[ind[i]-1, 3]
+    tab3_personas[(ind[i]-1):nrow(tab3_personas), "New_Var"] <- tab3_personas[ind[i]-1, 1]
+  } else {
+    tab3_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab3_personas[ind[i]-1, 3]
+    tab3_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab3_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab3_personas$Cod != "Código") & tab3_personas$Cod != "Código")
+tab3_personas <- tab3_personas[I, ]
+
+J <- (!is.na(tab3_personas$Desc))
+tab3_personas <- tab3_personas[J, ]
+
+variables <- c("PNACIMT","PNACT","PNACNACIMT","PNACIMPADRET","PNACIMMADRET")
+
+tab3_personas[tab3_personas == "PNACIMT *** (4 veces más)"] <- "PNACIMT"
+which(tab3_personas[,"Desc"] == "Austria")
+tab3_personas <- rbind(tab3_personas, tab3_personas, tab3_personas, tab3_personas, tab3_personas)
+tab3_personas$Var[which(tab3_personas[,"Desc"] == "Austria")] <-  variables
+ind <- which(tab3_personas[,"Desc"] == "Austria")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab3_personas$Var[ind[i]:(ind[i+1] - 1)] <- variables[i]
+}
+  else{
+  tab3_personas$Var[ind[i]:nrow(tab3_personas)] <- variables[i]  
+  }
+}
+
+tab_personas <- full_join(tab1_personas, tab2_personas_ok_ok)
+tab_personas_ok <- full_join(tab_personas, tab3_personas)
+tab_personas_ok$Cod <- as.numeric(as.character(tab_personas_ok$Cod))
+
+tab_personas_ok_2 <- tab_personas_ok[tab_personas_ok$Var %in% c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET"),]
+tab_personas_ok_2$Cod <- as.numeric(as.character(tab_personas_ok_2$Cod))
+
+for (i in names(persona_2)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok_2$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona_2[,i] == tab_personas_ok_2$Cod[pos[j]])
+      persona_2[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
+    }
+  }
+}
+
+for (i in names(persona)){
+  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok$Var == i)
+  #el if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    #ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona[,i] == tab_personas_ok$Cod[pos[j]])
+      persona[cod, i] <- tab_personas_ok$Desc[pos[j]]
+    }
+  }
+}
+```
+
+```{r}
+df <- full_join(hogar,persona)
+df_num <- full_join(hogar_2,persona_2)
+
+unique(df$IDQ_PV.x)
+
+rm(list=setdiff(ls(), c("df","df_num")))
+```
+
+
+### Análisis de NA's
+
+El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos o a que no procede establecer ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a que muchos de los valores no tendrián ningun sentido si hubiesen sido rellenados con cualquiera de las categorías que el INE presenta. Por tanto voy a ir analizando el porque de los NA en cada caso.
+
+```{r}
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
+})
+NA_analisis 
+```
+
+Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16% etc, la cuestión es que una gran cantidad de variables presentan NA's, sin embargo hay una serie de patrones que pueden ayudar a identificar las causas.
+
+```{r}
+vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
+NA_analisis_P <- sapply(df[,vector_p], function(x) {mean(is.na(x)) * 100
+})
+NA_analisis_P
+```
+
+Las primeras variables que analizaré son P01:P19, estas indican las relaciones de parentesco entre los miembros del hogar, P01, permite recoger todas las relaciones con respecto al miembro encuestado y el resto de variables no reccogen más información que la relación entre el resto de miembros de la unidad familiar, información que ya se puede conocer con P01 aunque sea de forma implicita, por tanto no nos aportan más información y se podrían eliminar.Además podemos establecer como valor al miembro encuestrado para evitar un NA.
+
+```{r}
+df[ ,"P01"][which(df[,"NPV"] == 1)] <- "Miembro encuestado"
+
+
+df <- df %>% 
+  select(-(P02:P19))
+
+NA_analisis_P <- mean(is.na(df[,"P01"]) * 100)
+NA_analisis_P
+
+```
+
+A continuación se estudian las variables SEXOPAR, NACPAR, ECPAR, HIJOSDEAMBOS, se van a estudiar juntas porque viendo el porcentaje de NA's coincide en los cuatro casos de un 50.236605%, esto también sucede para las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITNUCLEOFAM con un 44.979064%, ESTUDIOS y RELACT con un 14.990599% y NHIJO, NHIJOMENOR y NUCLEOFAM con un 16.580078%.
+
+```{r}
+df_EC_2 <- df %>% 
+select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHIJOMENOR)  
+
+
+  sapply(df_EC_2, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    NHIJOME_NUCLEO = ifelse(is.na(NHIJOME_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJO_NUCLEO = ifelse(is.na(NHIJO_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJO_NUCLEO),
+    SITUNUCLEOFAM = ifelse(is.na(SITUNUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", SITUNUCLEOFAM),
+    NHIJOMENOR = ifelse(is.na(NHIJOMENOR) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJOMENOR = ifelse(NHIJOME_NUCLEO == "Sin hijos/Sin pareja", NHIJOME_NUCLEO, NHIJOMENOR), 
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge de distinto sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho de distinto sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho del mismo sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge del mismo sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM)
+  )
+    
+df_EC <- df %>% 
+  select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
+
+  
+   df <- df %>%
+  mutate(
+    ECPAR = ifelse(is.na(ECPAR), "Sin pareja", ECPAR),
+    NACPAR = ifelse(is.na(NACPAR), "Sin pareja", NACPAR),
+    HIJOSDEAMBOS = ifelse(is.na(HIJOSDEAMBOS), "Sin pareja", HIJOSDEAMBOS),
+    SEXOPAR = ifelse(is.na(SEXOPAR), "Sin pareja", SEXOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo sin hijos", 0, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos todos comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos no comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Sin pareja", "Sin pareja", NHIJOPAR),
+    NHIJO = ifelse(NHIJO_NUCLEO == "Sin hijos/Sin pareja", "Sin hijos/Sin pareja",NHIJO),
+    NHIJO = ifelse(is.na(NHIJO), NHIJO_NUCLEO,NHIJO)
+    )
+  
+```
+
+Cuando establecemos EC == casados al ser pareja, deberían de aparecer los registros sobre su pareja(ECPAR, NACPAR, SEXOPAR) y HIJOSDEAMBOS, tengan o no tengan, sin embargo en el 3.38% de los casos no es así, posiblemente sea porque son datos perdidos.
+
+Cuando son solteros, divorciados, viudos o separados pueden vivir o no con una pareja entonces es lógico que aparezcan datos ausentes, una opción sería rellenar con NO procede los datos ausentes previo a realizar el codificado.
+
+
+Al haber eliminado anteriormente las filas de personas casadas sin datos en las categorias anteriores, tampoco aparecen datos ausentes para los casados, para los no casados si hay NA lo cual es lógico pues no procede si una persona no casado no tiene hijos o no pertenece a ninguna de las categorias de SITUNUCLEOFAM, por tanto hacemos como anteriormente.
+
+```{r}
+df_EDAD <- df %>% 
+select(ESTUDIOS,RELACT,EDAD) %>% 
+  filter(EDAD >= 16)
+
+  sapply(df_EDAD, function(x) {mean(is.na(x)) 
+})
+  
+  df <- df %>%
+  mutate(
+    RELACT = ifelse(is.na(RELACT), "No procede", RELACT),
+    ESTUDIOS = ifelse(is.na(ESTUDIOS), "No procede", ESTUDIOS)
+  )
+```
+
+Los menores de 16 años no quedan registrados con ningún tipo de estudios ni relación laboral ni tampoco ocupación, por tanto son NA que se explican por ese motivo.
+
+```{r}
+df_extranjeros <- df %>% 
+  select(EDADFLLEG,TPOFLLEG,NACIM,TPOFNACESP,NAC) 
+
+
+  sapply(df_extranjeros, function(x) {mean(is.na(x))
+})
+  
+  df <- df %>%
+  mutate(
+    EDADFLLEG = ifelse(is.na(EDADFLLEG), "Nacido en España", EDADFLLEG),
+    TPOFLLEG = ifelse(is.na(TPOFLLEG), "Nacido en España", TPOFLLEG),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española", "Nacionalidad española de nacimiento", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "No tiene nacionalidad española", "No tiene nacionalidad española", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española y otras", "Nacionalidad española de nacimiento", TPOFNACESP)
+  )
+
+df_NACIONALIDAD <- df %>% 
+select(NACNACIMESP,NAC) %>% 
+  filter(!(NAC == "No tiene nacionalidad española"))
+
+  sapply(df_NACIONALIDAD, function(x) {mean(is.na(x)) 
+})
+  
+   df <- df %>%
+  mutate(
+    NACNACIMESP = ifelse(is.na(NACNACIMESP), "No tiene nacionalidad española", NACNACIMESP),
+  )
+  
+```
+
+Las variables EDADFLLEG y TPOFLLEG miden la edad con la que un extranjero llego a españa y el tiempo que lleva residiendo respectivamente mientras que TPOFNACESP es el tiempo que lleva alguien con la nacionalidad española adquirida, cuando filtramos por no nacionales españoles y gente con nacionalidad española, vemos que desaparecen los NA lo cual es lógico puesto que un ciudadano español nacido en españa ya reside en españa desde que nació y por otro lado, todo ciudadano que no haya querido solicitar la nacionalidad española no le procede contestar cuanto años hace que la adquirio.
+
+Finalmente NACNACIMESP mide si alguien tiene o no la nacionalidad española de nacimiento o la adquirio después, si no la han solicitado no procede contestar y por eso aparecen los NA.
+
+```{r}
+df_OCUPADOS <- df %>% 
+  select(OCUPA,RELACT) %>% 
+  filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
+
+  sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    OCUPA = ifelse(is.na(OCUPA), "No trabaja", OCUPA)
+  )
+  
+df_CONSTRUCCION <- df %>% 
+  select(ANOANEDI,ANEDI) %>% 
+  filter(ANEDI == "Después del año 2000")
+
+  sapply(df_CONSTRUCCION, function(x) {mean(is.na(x)) 
+})
+  
+table(df$FEDI,df$ANEDI)
+
+df <- df %>% 
+  select(-ANOANEDI & -ANEDI)
+
+```
+
+Que haya muchos NA es comprensible en el apartado de OCUPA puesto que si el entrevistado no se encuentra ocupado no puede contestar nada, respecto a ANONEDI solo recoge datos de construcción de vivienda a partir de los años 2000, por lo que no aporta información adicional relevante respecto a las variables ANEDI y FEDI, de hecho, ANEDI tampoco aporta más información que la variable FEDI, por lo que estas dos variables se pueden suprimir.
+
+```{r}
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
+})
+NA_analisis
+
+```
+
+Con esto hemos eliminado todos los valores ausentes del conjunto de datos, faltaría codificar todos los cambios realizados de forma que no afecte luego en fases posteriores del analisis.
+
+### Cambios de tipo de variables
+
+La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque ahora aparece como una variable de tipo numérico. Por otro lado hemos estado trabajando con una gran cantidad de variables de tipo factor que actualmente aparecen como de tipo caracter y deben ser cambiadas, en la fase de codificación se pasarán a númerico para poder usados en análisis de correlación, modelos de regresión etc.
+
+```{r}
+rm(list=setdiff(ls(), c("df","df_num")))
+df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
+
+df |> 
+  mutate(PERIODO = yq(PERIODO)) |>  
+  mutate_if(is.character, factor)
+
+str(df)
+```
+
+Analizando los levels de las variables factor nos encontramos con países con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
+
+```{r}
+df <- df %>% 
+  filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  droplevels()
+
+str(df)
+```
+
+### Cambio nombre variables
+
+Cambios de nombre de variables para mejorar la claridad de algunas variables
+
+```{r}
+df <- df %>% 
+  rename(
+    PROVINCIA = IDQ_PV,
+    F_CONS_EDI = FEDI,
+    PERS_HOGAR = TAMTOHO,
+    NAC_HO = NACHO,
+    PAIS_NACIM = PNACIMT,
+    EDAD_LLEG_ESP = EDADFLLEG,
+    TPO_LLEG_ESP =TPOFLLEG,
+    PAIS_NAC = PNACT,
+    PAIS_NAC_NACIM = PNACNACIMT,
+    TPO_NAC_ESP = TPOFNACESP,
+    PAIS_NACIM_PADRE = PNACIMPADRET,
+    PAIS_NACIM_MADRE = PNACIMMADRET,
+    RELAC_MIEMBROS = P01,
+    ACTIVIDAD = RELACT,
+)
+```
+
+
 ### Casos a estudiar
 
 _ANÁLISIS UNIVARIANTE_
