@@ -333,11 +333,11 @@ library(DT)
     })
 
    output$table1 <- DT::renderDataTable({
-    DT::datatable(hogar, options = list(scrollX = TRUE, scrollY = TRUE))
+    DT::datatable(hogar, options = list(scrollX = T, scrollY = T))
   })
     
     output$table2 <- DT::renderDataTable({
-    DT::datatable(persona, options = list(scrollX = TRUE, scrollY = TRUE))
+    DT::datatable(persona, options = list(scrollX = T, scrollY = T))
   })
     
     output$map <- renderLeaflet({map_spain})

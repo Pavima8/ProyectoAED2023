@@ -179,264 +179,911 @@ Journal options are in Table \ref{tab:mdpinames}. The `status` variable should
 generally not be changed by authors. The `type` variable describes 
 the type of of submission and defaults to `article` but can be replaced with any of the ones in Table \ref{tab:mdpitype}
 
-```{r mdpitype, echo = FALSE}
-type <- c("abstract, addendum, article, book, bookreview, briefreport, 
-casereport, comment, commentary, communication, conferenceproceedings, 
-correction, conferencereport, entry, expressionofconcern, extendedabstract, 
-datadescriptor, editorial, essay, erratum, hypothesis, interestingimage, 
-obituary, opinion, projectreport, reply, retraction, review, perspective, 
-protocol, shortnote, studyprotocol, systematicreview, supfile, 
-technicalnote, viewpoint, guidelines, registeredreport, tutorial")
-knitr::kable(rticles::string_to_table(type, 3), 
-             col.names = NULL, format = "latex", booktab = TRUE, 
-             caption = "MDPI article types.")
+### Librerias
+
+Estas son las librerías que utilizaremos a lo largo del proyecto.
+
+```{r echo=TRUE, warning=FALSE}
+#librerias
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(caret)
+library(ggplot2)
+library(shiny)
+library(shinydashboard)
+library(dplyr)
+library(DT)
 ```
 
-## Journal Specific YAML variables
+## Carga de los datos
 
-```yaml
-# for journal Diversity,
-# add the Life Science Identifier using:
-lsid: http://zoobank.org/urn:lsid:zoobank.org:act:nnnn
+Los conjuntos de datos se obtuvieron de dos archivos .csv, la carga de los mismos fue bastante sencilla y no supuso ninguna complicación.
+
+```{r echo=TRUE}
+hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
+hogar_2 <- hogar
+persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
+persona_2 <- persona
+```
+
+Los conjuntos de datos con los que inicialmente trabajamos se denominan hogar y persona (hogar_2 y persona_2 se explican a continuación). hogar es un conjunto de 88783 observaciones y 27 variables mientras que persona presenta 220198 observaciones y 27 variables.
+
+Hay una serie de variables presentes en ambos conjuntos que actuan como primary keys para su posterior unión (codebook). 
+
+## Limpieza de los datos
+
+Antes de empezar a trabajar en los dataset miramos la estructura de las variables asi como un primer vistazo preeliminar.
+
+```{r}
+View(hogar)
+View(persona)
+str(hogar)
+str(persona)
+```
+
+  Podemos observar que tenemos muchas variables tipo integer asi como algunas variables de tipo numérico, character y algunas variables de tipo lógico. En este primer vistazo inicial también se observa una gran presencia de valores ausentes (NA's).
 
 
-# for journal Applied Sciences
-# add featured application
-featuredapplication: |
-  Authors are encouraged to provide a concise 
-  description of the specific application or 
-  a potential application of the work. This 
-  section is not mandatory.
+  El INE nos ofrece un informe con la metodología empleada para la obtención de los datos así como la explicación de las variables que se encuentran en el dataset. Para recoger la información se utilizaron cuestionarios donde el participante debía rellenar en una de las opciones disponibles para cada una de las preguntas que se le hacía, además, hay preguntas que no todos los participantes debían rellenar si no que iba en función de respuestas anteriores, por tanto esto nos aporta información en dos direcciones:
+  
+  1º. Gran parte de las variables de los conjuntos de datos son categóricas
+  
+  2º. Que muchos datos ausentes se deban a no tener que responder una determinada pregunta del cuestionario
+  
+  Al ser una gran cantidad de variables de tipo categórico, estas podían aparecer en forma de texto (factor) o en forma de número (integer). Ambos enfoques tienen sus ventajas e inconvenientes. Si tenemos las variables en formato de texto como factor podemos saber de manera más sencilla que significa cada dato, lo que permite clasificar los datos con mayor facilidad, encontrar relaciones etc. . También nos permite añadir categorías en formato texto alla donde hay NA's como categorías adicionales a las existentes y poder operar con un dataset sin valores ausentes. La principal desventaja es que no se puede modelizar con variables tipo texto, necesitan ser transformadas a numérica para ello. La ventaja de utilizar variables de tipo numérico es la que se acaba de presentar, el poder modelizar. La principal desventaja es el hecho de que en algunas ocasiones y como se explicará posteriormente no se pueden imputar valores a los NA, por muy sofisticada que sea la técnica de imputación simplemente porque no procede como es en este caso.
+  
+  Por tanto se ha decidido utilizar dos datasets, uno donde transformamos las variables categóricas a texto (exceptuando las que no procede pasar a texto, por ej: Número de aseos), y otro dataset donde mantenemos las variables en un formato numérico(exceptuando algunas donde sería muy complicado de operar y es preferible operar con texto, por ej: Nombre de países). 
+  
+  - hogar y persona son datasets donde transformamos las variables a tipo texto
+  - hogar_2 y persona_2 donde mantenemos el formato numérico.
+  
+  Para este proyecto trabajaremos principalmente sobre el dataset con variables de tipo texto pero se crea el de formato numérico como conjunto de datos que se podría usar para modelizar.
+  
+  Por tanto vamos a transformar las variables deseadas a formato texto.
+  
+### Transformación de variables
 
-# for the journal Data
-# add dataset doi and license
-dataset: https://doi.org/10.1000/182
-datasetlicense: CC-BY-4.0
+  Para transformar las variables de tipo, utlizamos los diccionarios adjuntos al dataset donde se explica como se llama cada variable, que significa y como está codificada.
+  
+  Cada hoja del diccionario de excel contiene información sobre las variables:
 
-# for the journal Toxins
-# add key contributions
-keycontributions: |
-  The breakthroughs or highlights of the manuscript. 
-  Authors can write one or two sentences to describe 
-  the most important part of the paper.
+```{r variables de hogar a caracter, include=FALSE}
 
-# for the journal Encyclopedia
-encyclopediadef: |
-  For entry manuscripts only: please provide a brief overview
-  of the entry title instead of an abstract.
-entrylink: The Link to this entry published on the encyclopedia platform.
+  # Cargamos el diccionario del dataset de hogar/hogar_2
 
-# for the journal Advances in Respiratory Medicine
-# add highlights
-addhighlights: |
-  This is an obligatory section in “Advances in Respiratory Medicine”, 
-  whose goal is to increase the discoverability and readability of the
-  article via search engines and other scholars. Highlights should not 
-  be a copy of the abstract, but a simple text allowing the reader to 
-  quickly and simplified find out what the article is about and what can 
-  be cited from it. Each of these parts should be devoted up to 2~bullet 
-  points.
+dic <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
+
+  # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
+
+tab1 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
+
+  # Vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab1) <- c("Cod", "Desc", "Var")
+ind <- which(tab1$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1[(ind[i]-1):nrow(tab1), "Var"] <- tab1[ind[i]-1, 3]
+    tab1[(ind[i]-1):nrow(tab1), "New_Var"] <- tab1[ind[i]-1, 1]
+  } else {
+    tab1[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1[ind[i]-1, 3]
+    tab1[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab1$Cod != "Código") & tab1$Cod != "Código")
+tab1 <- tab1[I, ]
+
+J <- (!is.na(tab1$Desc))
+tab1 <- tab1[J, ]
+
+  # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
+
+tab2 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+  # Repetimos el proceso para la segunda tabla
+
+names(tab2) <- c("Cod", "Desc", "Var")
+ind <- which(tab2$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2[(ind[i]-1):nrow(tab2), "Var"] <- tab2[ind[i]-1, 3]
+    tab2[(ind[i]-1):nrow(tab2), "New_Var"] <- tab2[ind[i]-1, 1]
+  } else {
+    tab2[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2[ind[i]-1, 3]
+    tab2[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2$Cod != "Código") & tab2$Cod != "Código")
+tab2 <- tab2[I, ]
+
+J <- (!is.na(tab2$Desc))
+
+ # tab2 es la tabla de variables de tipo texto que vamos a unir a la tab1 para modificar la variables de hogar
+
+tab2 <- tab2[J, ]
+
+ # tab2_2 es la tabla que utilizamos para el df de hogar_2, aqui solo queremos convertir a texto la variable "TIPOHO" y por eso la especificamos
+
+tab2_2 <- tab2[tab2$Var %in% c("TIPOHO"),]
+
+tab <- full_join(tab1, tab2)
+tab_2 <- full_join(tab1, tab2_2)
+
+tab$Cod <- as.numeric(as.character(tab$Cod))
+tab_2$Cod <- as.numeric(as.character(tab_2$Cod))
+
+ # Este bucle for nos modifica el data frame hogar para convertir las variables a texto de tab
+
+for (i in names(hogar)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(hogar[,i] == tab$Cod[pos[j]])
+      hogar[cod, i] <- tab$Desc[pos[j]]
+    }
+  }
+}
+
+  # Este bucle for nos modifica el data frame hogar para convertir las variables a texto de tab_2
+
+for (i in names(hogar_2)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_2$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(hogar_2[,i] == tab_2$Cod[pos[j]])
+      hogar_2[cod, i] <- tab_2$Desc[pos[j]]
+    }
+  }
+}
 
 ```
 
+  Repetimos este proceso para el conjunto de datos de personas/personas_2
 
-\startlandscape
-```{r, mdpinames, echo=FALSE, results='asis'}
-mdpi_journals <- "acoustics, actuators, addictions, admsci, adolescents, aerobiology, aerospace, agriculture, agriengineering, agrochemicals, agronomy, ai, air, algorithms, allergies, alloys, analytica, analytics, anatomia, animals, antibiotics, antibodies, antioxidants, applbiosci, appliedchem, appliedmath, applmech, applmicrobiol, applnano, applsci, aquacj, architecture, arm, arthropoda, arts, asc, asi, astronomy, atmosphere, atoms, audiolres, automation, axioms, bacteria, batteries, bdcc, behavsci, beverages, biochem, bioengineering, biologics, biology, biomass, biomechanics, biomed, biomedicines, biomedinformatics, biomimetics, biomolecules, biophysica, biosensors, biotech, birds, bloods, blsf, brainsci, breath, buildings, businesses, cancers, carbon, cardiogenetics, catalysts, cells, ceramics, challenges, chemengineering, chemistry, chemosensors, chemproc, children, chips, cimb, civileng, cleantechnol, climate, clinpract, clockssleep, cmd, coasts, coatings, colloids, colorants, commodities, compounds, computation, computers, condensedmatter, conservation, constrmater, cosmetics, covid, crops, cryptography, crystals, csmf, ctn, curroncol, cyber, dairy, data, ddc, dentistry, dermato, dermatopathology, designs, devices, diabetology, diagnostics, dietetics, digital, disabilities, diseases, diversity, dna, drones, dynamics, earth, ebj, ecologies, econometrics, economies, education, ejihpe, electricity, electrochem, electronicmat, electronics, encyclopedia, endocrines, energies, eng, engproc, entomology, entropy, environments, environsciproc, epidemiologia, epigenomes, est, fermentation, fibers, fintech, fire, fishes, fluids, foods, forecasting, forensicsci, forests, foundations, fractalfract, fuels, future, futureinternet, futurepharmacol, futurephys, futuretransp, galaxies, games, gases, gastroent, gastrointestdisord, gels, genealogy, genes, geographies, geohazards, geomatics, geosciences, geotechnics, geriatrics, grasses, gucdd, hazardousmatters, healthcare, hearts, hemato, hematolrep, heritage, higheredu, highthroughput, histories, horticulturae, hospitals, humanities, humans, hydrobiology, hydrogen, hydrology, hygiene, idr, ijerph, ijfs, ijgi, ijms, ijns, ijpb, ijtm, ijtpp, ime, immuno, informatics, information, infrastructures, inorganics, insects, instruments, inventions, iot, j, jal, jcdd, jcm, jcp, jcs, jcto, jdb, jeta, jfb, jfmk, jimaging, jintelligence, jlpea, jmmp, jmp, jmse, jne, jnt, jof, joitmc, jor, journalmedia, jox, jpm, jrfm, jsan, jtaer, jvd, jzbg, kidneydial, kinasesphosphatases, knowledge, land, languages, laws, life, liquids, literature, livers, logics, logistics, lubricants, lymphatics, machines, macromol, magnetism, magnetochemistry, make, marinedrugs, materials, materproc, mathematics, mca, measurements, medicina, medicines, medsci, membranes, merits, metabolites, metals, meteorology, methane, metrology, micro, microarrays, microbiolres, micromachines, microorganisms, microplastics, minerals, mining, modelling, molbank, molecules, mps, msf, mti, muscles, nanoenergyadv, nanomanufacturing, nanomaterials, ncrna, ndt, network, neuroglia, neurolint, neurosci, nitrogen, notspecified, nri, nursrep, nutraceuticals, nutrients, obesities, oceans, ohbm, onco, oncopathology, optics, oral, organics, organoids, osteology, oxygen, parasites, parasitologia, particles, pathogens, pathophysiology, pediatrrep, pharmaceuticals, pharmaceutics, pharmacoepidemiology, pharmacy, philosophies, photochem, photonics, phycology, physchem, physics, physiologia, plants, plasma, platforms, pollutants, polymers, polysaccharides, poultry, powders, preprints, proceedings, processes, prosthesis, proteomes, psf, psych, psychiatryint, psychoactives, publications, quantumrep, quaternary, qubs, radiation, reactions, receptors, recycling, regeneration, religions, remotesensing, reports, reprodmed, resources, rheumato, risks, robotics, ruminants, safety, sci, scipharm, sclerosis, seeds, sensors, separations, sexes, signals, sinusitis, skins, smartcities, sna, societies, socsci, software, soilsystems, solar, solids, spectroscj, sports, standards, stats, std, stresses, surfaces, surgeries, suschem, sustainability, symmetry, synbio, systems, targets, taxonomy, technologies, telecom, test, textiles, thalassrep, thermo, tomography, tourismhosp, toxics, toxins, transplantology, transportation, traumacare, traumas, tropicalmed, universe, urbansci, uro, vaccines, vehicles, venereology, vetsci, vibration, virtualworlds, viruses, vision, waste, water, wem, wevj, wind, women, world, youth, zoonoticdis"
+```{r df personas, include=FALSE}
 
-knitr::kable(rticles::string_to_table(mdpi_journals, 8),
-             col.names = NULL,
-             format = "latex",
-             booktabs = TRUE, 
-             caption = "MDPI journal names.",
-             longtable = TRUE)
+  # Cargamos el diccionario del dataset de hogar/hogar_2
+
+dic_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
+
+   # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información 
+
+tab1_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
+
+  # El proceso que se sigue es identico al realizado para el df de hogar
+
+names(tab1_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab1_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1_personas[(ind[i]-1):nrow(tab1_personas), "Var"] <- tab1_personas[ind[i]-1, 3]
+    tab1_personas[(ind[i]-1):nrow(tab1_personas), "New_Var"] <- tab1_personas[ind[i]-1, 1]
+  } else {
+    tab1_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1_personas[ind[i]-1, 3]
+    tab1_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab1_personas$Cod != "Código") & tab1_personas$Cod != "Código")
+tab1_personas <- tab1_personas[I, ]
+
+J <- (!is.na(tab1_personas$Desc))
+tab1_personas <- tab1_personas[J, ]
+
+  # Cargamos la segunda tabla
+
+tab2_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+  # Repetimos el proceso para la segunda tabla
+
+names(tab2_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab2_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2_personas[(ind[i]-1):nrow(tab2_personas), "Var"] <- tab2_personas[ind[i]-1, 3]
+    tab2_personas[(ind[i]-1):nrow(tab2_personas), "New_Var"] <- tab2_personas[ind[i]-1, 1]
+  } else {
+    tab2_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2_personas[ind[i]-1, 3]
+    tab2_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2_personas$Cod != "Código") & tab2_personas$Cod != "Código")
+tab2_personas <- tab2_personas[I, ]
+
+J <- (!is.na(tab2_personas$Desc))
+tab2_personas <- tab2_personas[J, ]
+
+  # Hay variables que como "NACIM *** (2 veces más)", no detectan correctamente las variables, hemos tenido que hacer este sistema para arreglarlo
+
+  # Básicamente creamos otro df donde creamos todas las variables que es necesario modificar obteniendo los valores que nos interesan
+
+tab2_personas[tab2_personas == "NACIM *** (2 veces más)"] <- "NACIM"
+
+tab2_personas_2_3 <- tab2_personas[19:20,]
+variables_NACIM <- c("NACIM","NACIMPADRE","NACIMMADRE")
+tab2_personas_2_3 <- do.call(rbind, replicate(3, tab2_personas_2_3, simplify = FALSE))
+tab2_personas_2_3$Var[which(tab2_personas_2_3[,"Desc"] == "España")] <-  variables_NACIM
+
+ind <- which(tab2_personas_2_3[,"Desc"] == "España")
+
+  # Para poner correctamente el nombre de las variables en la columna Var
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab2_personas_2_3$Var[ind[i]:(ind[i+1] - 1)] <- variables_NACIM[i]
+}
+  else{
+  tab2_personas_2_3$Var[ind[i]:nrow(tab2_personas_2_3)] <- variables_NACIM[i]  
+  }
+}
+
+  # Para la variable "P01 *** (18 veces más)" sucede lo mismo y el proceso que se sigue es equivalente al código inmediatamente arriba
+
+tab2_personas[tab2_personas == "P01 *** (18 veces más)"] <- "P01"
+
+tab2_personas_2 <- tab2_personas[26:33,]
+vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
+tab2_personas_2 <- do.call(rbind, replicate(19, tab2_personas_2, simplify = FALSE))
+tab2_personas_2$Var[which(tab2_personas_2[,"Desc"] == "Padre/Madre")] <-  vector_p
+
+ind <- which(tab2_personas_2[,"Desc"] == "Padre/Madre")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab2_personas_2$Var[ind[i]:(ind[i+1] - 1)] <- vector_p[i]
+}
+  else{
+  tab2_personas_2$Var[ind[i]:nrow(tab2_personas_2)] <- vector_p[i]  
+  }
+}
+  
+  # Unimos los df creados a posteriori para incluir las variables que por falla de la estructura de los diccionarios no se transformaba correctamente
+
+tab2_personas_ok <- full_join(tab2_personas,tab2_personas_2)
+tab2_personas_ok_ok <- full_join(tab2_personas_ok,tab2_personas_2_3)
+
+  # Cargamos la tercera tabla
+
+tab3_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas3", col_names = FALSE, skip = 4)
+
+  # Repetimos el proceso para la segunda tabla
+
+names(tab3_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab3_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab3_personas[(ind[i]-1):nrow(tab3_personas), "Var"] <- tab3_personas[ind[i]-1, 3]
+    tab3_personas[(ind[i]-1):nrow(tab3_personas), "New_Var"] <- tab3_personas[ind[i]-1, 1]
+  } else {
+    tab3_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab3_personas[ind[i]-1, 3]
+    tab3_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab3_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab3_personas$Cod != "Código") & tab3_personas$Cod != "Código")
+tab3_personas <- tab3_personas[I, ]
+
+J <- (!is.na(tab3_personas$Desc))
+tab3_personas <- tab3_personas[J, ]
+
+  # Para la variable "PNACIMT *** (4 veces más)" sucede lo mismo y el proceso que se sigue es equivalente al código de modificación de "P01 *** (18 veces más)"
+
+tab3_personas[tab3_personas == "PNACIMT *** (4 veces más)"] <- "PNACIMT"
+
+variables <- c("PNACIMT","PNACT","PNACNACIMT","PNACIMPADRET","PNACIMMADRET")
+which(tab3_personas[,"Desc"] == "Austria")
+tab3_personas <- rbind(tab3_personas, tab3_personas, tab3_personas, tab3_personas, tab3_personas)
+tab3_personas$Var[which(tab3_personas[,"Desc"] == "Austria")] <-  variables
+ind <- which(tab3_personas[,"Desc"] == "Austria")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab3_personas$Var[ind[i]:(ind[i+1] - 1)] <- variables[i]
+}
+  else{
+  tab3_personas$Var[ind[i]:nrow(tab3_personas)] <- variables[i]  
+  }
+}
+
+  # Unimos las tablas modificadas, además de las tablas de las hojas 1, 2 y 3
+
+tab_personas <- full_join(tab1_personas, tab2_personas_ok_ok)
+tab_personas_ok <- full_join(tab_personas, tab3_personas)
+
+ # df utilizado para modificar el conjunto de datos de persona
+
+tab_personas_ok$Cod <- as.numeric(as.character(tab_personas_ok$Cod))
+
+ # df utilizado para modificar el conjunto de datos de persona_2 siendo c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET") las variables que queremos convertir a texto únicamente.
+
+tab_personas_ok_2 <- tab_personas_ok[tab_personas_ok$Var %in% c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET"),]
+tab_personas_ok_2$Cod <- as.numeric(as.character(tab_personas_ok_2$Cod))
+
+# Este bucle for nos modifica el data frame persona para convertir las variables a texto de tab_personas_ok
+
+for (i in names(persona)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona[,i] == tab_personas_ok$Cod[pos[j]])
+      persona[cod, i] <- tab_personas_ok$Desc[pos[j]]
+    }
+  }
+}
+
+  # Este bucle for nos modifica el data frame persona_2 para convertir las variables a texto de tab_personas_ok_2
+
+for (i in names(persona_2)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok_2$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona_2[,i] == tab_personas_ok_2$Cod[pos[j]])
+      persona_2[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
+    }
+  }
+}
+```
+
+  De este modo hemos trasfromado las variables que queriamos tener en texto y hemos mantenido aquellas variables númericas de interés para poder tener un df utilizable para modelizar y otro para analizar las variables cualitativas.
+
+```{r}
+head(persona)
+head(hogar)
+head(persona_2)
+head(hogar_2)
+```
+
+  Hecho esto unimos los subconjuntos de datos para tener el conjunto que vamos a utilizar para el análisis.
+  
+  - df: Donde almacenamos la mayor parte de las variables en tipo texto
+  
+  - df_num: Donde almacenamos la mayor parte de las variables en tipo numérico
+
+```{r warning=FALSE}
+df <- full_join(hogar,persona)
+df_num <- full_join(hogar_2,persona_2)
+
+ # Con rm podemos tener nuestro environment de RStudio más limpio y claro ya que en principio no vamos a necesitar ninguna variable de las de arriba
+
+rm(list=setdiff(ls(), c("df","df_num","hogar","persona","hogar_2","persona_2")))
+```
+
+  Obervamos la estructura del df y observamos una variable (PERIODO) que presenta un formato de tipo integer pero que realmente representa el año y el trimestre de toma de los datos por lo que se ajusta más a un tipo fecha realmente.
+
+```{r}
+str(df)
+
+  # Sustituimos 20191,20192... por 201901,20192... ya que la función yq() de lubridate no entiende el dato como fecha de otra forma
+
+df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
+df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
+
+df <- df |> 
+  mutate(PERIODO = yq(PERIODO))
+
+df_num <- df_num |> 
+  mutate(PERIODO = yq(PERIODO))
+
+  # Si se carga este chunk multiples veces dará error, en ese caso vuelve a cargar el chunk inmediatamente arriba para volver a cargar los df en sus estado anteriores.
+```
+  
+  Las variables de tipo character las podemos trasnformar a factor, sin embargo nos vamos a esperar a haber realizado primero el análisis de NA's ya que vamos a crear nuevas categorías de datos al imputar muchos de esos valores NA.
+
+
+### Análisis de NA's
+
+  El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos o a que no procede establecer ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a que en la encuesta que proporciona el INE a los miembros del hogar, algunas preguntas se contestan o no en función de como contestaron pregunatas anteriores. Por tanto, si analizamos el porque de cada caso podemos obtener información adicional.
+  
+  Como veremos a continuación no tiene sentido asignar un valor numérico a un valor NA, por tanto para nuestro dataset numérico no tiene sentido imputar valores a los NA. Si se quisiera modelizar o utilizar cualquier técnica que requiera cálculos, es imprescindible tener el dataset adaptado a cada modelo que se quiera realizar aplicando distintos filtros que hace que desaparezcan los NA. Por ej. filtrar por mayores de 16 años. Esto se analizará con más detalle a lo largo de la sección.
+  
+  Aqui vemos el porcentaje de NA's por variable:
+
+```{r}
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
+})
+NA_analisis 
+```
+
+  Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16% etc. .Un aspecto interesante que podemos observar, es que hay variables que tienen exactamente el mismo porcentaje de NA's, esto podría indicarnos relaciones entre las variables.
+
+  Las primeras variables que vamos a analizar son P01:P19. Estas indican las relaciones de parentesco entre los miembros del hogar.
+
+```{r}
+vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
+NA_analisis_P <- sapply(df[,vector_p], function(x) {mean(is.na(x)) * 100
+})
+NA_analisis_P
+```
+
+  Vemos que casi todas ellas tienen porcentajes muy elevados de NA inclusive del 100%, esto es lógico pues es poco común que hayan familias de más de 4 miembros, además solamente con P01 ya podemos tener la información sobre las relaciones de parentesco de todos los miembros de la familia por lo que podemos eliminar P02:P19 sin perder información. 
+
+```{r}
+
+  #Imputamos al miembro que realizó la encuesta el valor de "Miembro encuestado" ya que aparecía como NA
+
+df[ ,"P01"][which(df[,"NPV"] == 1)] <- "Miembro encuestado"
+df_num[ ,"P01"][which(df_num[,"NPV"] == 1)] <- "Miembro encuestado"
+
+
+df <- df %>% 
+  select(-(P02:P19))
+
+df_num <- df_num %>% 
+  select(-(P02:P19))
+
+NA_analisis_P <- mean(is.na(df[,"P01"]) * 100)
+NA_analisis_P
 
 ```
-\finishlandscape
+
+  Si le imputamos al miembro que realizó la encuesta NPV == 1 el valor "Miembro encuestado", lo cual podemos hacer pues la relación consigo mismo y eliminamos el resto de variables vemos que realmente no tenemos valores ausentes. Esta tendencia de mediante una sola operación de imputación razonable desaparecen los valores ausentes es recurrente en el dataset.
+
+  A continuación se estudian todas aquellas variables que tienen relación con el nucleo familiar, (EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,PAREJA,NUCLEOFAM, NHIJOMENOR,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO), todas ellas estan relacionadas ya que la información que contienen varía ligeramente, sin embargo, observamos que si los individuos que contestaron el cuestionario en el apartado de PAREJA establecieron que "No convive en pareja", hacia que se quedara sin contestar pues no se puede contestar algo sobre el EC de la pareja sin tenerla por poner un ejemplo.
+  
+  Para las variables NUCLEOFAM NHIJOPAR y NHIJO se han tenido que realizar imputaciones de datos pues en principio no hay ningún criterio conocido por el que esos datos no estuvieran presentes. Se le buscaron variables que contengan información muy similar o igual a la información que recoge la variable. Al tener el dataset una gran cantidad de variables con cambios marginales entre una y otra, podemos imputar datos de una variable a otra de forma relativamente razonable, además el número de datos perdidos en este caso es relativamente pequeño (no más de un 3% de NA reales de esas variables).
+  
+  La lista completa de relaciones se puede visualizar en el código.
+
+```{r}
+df_EC <- df %>% 
+select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHIJOMENOR)  
 
 
+  sapply(df_EC_2, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    NHIJOME_NUCLEO = ifelse(is.na(NHIJOME_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJO_NUCLEO = ifelse(is.na(NHIJO_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJO_NUCLEO),
+    SITUNUCLEOFAM = ifelse(is.na(SITUNUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", SITUNUCLEOFAM),
+    NHIJOMENOR = ifelse(is.na(NHIJOMENOR) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJOMENOR = ifelse(NHIJOME_NUCLEO == "Sin hijos/Sin pareja", NHIJOME_NUCLEO, NHIJOMENOR), 
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge de distinto sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho de distinto sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho del mismo sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge del mismo sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM)
+  )
+    
+df_EC_2 <- df %>% 
+  select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
+
+  sapply(df_EC, function(x) {mean(is.na(x)) 
+})
+
+  
+   df <- df %>%
+  mutate(
+    ECPAR = ifelse(is.na(ECPAR), "Sin pareja", ECPAR),
+    NACPAR = ifelse(is.na(NACPAR), "Sin pareja", NACPAR),
+    HIJOSDEAMBOS = ifelse(is.na(HIJOSDEAMBOS), "Sin pareja", HIJOSDEAMBOS),
+    SEXOPAR = ifelse(is.na(SEXOPAR), "Sin pareja", SEXOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo sin hijos", 0, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos todos comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos no comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Sin pareja", "Sin pareja", NHIJOPAR),
+    NHIJO = ifelse(NHIJO_NUCLEO == "Sin hijos/Sin pareja", "Sin hijos/Sin pareja",NHIJO),
+    NHIJO = ifelse(is.na(NHIJO), NHIJO_NUCLEO,NHIJO)
+    )
+   
+
+  
+```
+
+  Seguidamente podemos ver que las variables ESTUDIOS y RELACT también tienen valores ausentes relacionados. Estas preguntas del cuestionario solo se tomaron a los mayores de 16 años, por tanto si filtramos el df por edad, vemos que los NA desaparecen completamente.
+  
+  De forma análoga, aquellos que contestaron que no se encontraban "Trabajando a tiempo completo" o "Trabajando a tiempo parcial", no correspondía que contestaran nada en el apartado de OCUPA ya que no trabajan.
+
+```{r}
+df_EDAD <- df %>% 
+select(ESTUDIOS,RELACT,EDAD) %>% 
+  filter(EDAD >= 16)
+
+  sapply(df_EDAD, function(x) {mean(is.na(x)) 
+})
+  
+  df <- df %>%
+  mutate(
+    RELACT = ifelse(is.na(RELACT), "No procede", RELACT),
+    ESTUDIOS = ifelse(is.na(ESTUDIOS), "Menor de 16 años", ESTUDIOS)
+  )
+  
+df_OCUPADOS <- df %>% 
+  select(OCUPA,RELACT) %>% 
+  filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
+
+  sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    OCUPA = ifelse(is.na(OCUPA), "No trabaja", OCUPA)
+  )
+```
+
+  Respecto a las variables relacionadas con el lugar de nacimiento y la nacionalidad, había apartados que correspondía responder en función o no de la nacionalidad del encuestado, por ejemplo, los ciudadanos nacidos en España no debían contestar cuando llegaron a España o cuando obtuvieron la nacionalidad. Que valores ausentes había y como se han imputado se puede ver en el código abajo:
+
+```{r}
+df_extranjeros <- df %>% 
+  select(EDADFLLEG,TPOFLLEG,NACIM,TPOFNACESP,NAC) 
 
 
-# Introduction
+  sapply(df_extranjeros, function(x) {mean(is.na(x))
+})
+  
+  df <- df %>%
+  mutate(
+    EDADFLLEG = ifelse(is.na(EDADFLLEG), "Nacido en España", EDADFLLEG),
+    TPOFLLEG = ifelse(is.na(TPOFLLEG), "Nacido en España", TPOFLLEG),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española", "Nacionalidad española de nacimiento", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "No tiene nacionalidad española", "No tiene nacionalidad española", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española y otras", "Nacionalidad española de nacimiento", TPOFNACESP)
+  )
 
-The introduction should briefly place the study in a broad context and highlight
-why it is important. It should define the purpose of the work and its
-significance. The current state of the research field should be reviewed
-carefully and key publications cited. Please highlight controversial and
-diverging hypotheses when necessary. Finally, briefly mention the main aim of
-the work and highlight the principal conclusions. As far as possible, please
-keep the introduction comprehensible to scientists outside your particular
-field of research. Citing a journal paper [@bertrand-krajewski_distribution_1998;
-@leutnant_stormwater_2016]. And now citing a book reference @gujer_systems_2008.
-Some MDPI journals use Chicago and others use APA, this template should choose
-the correct citation format for you once you specify the journal in the YAML
-header.
+df_NACIONALIDAD <- df %>% 
+select(NACNACIMESP,NAC) %>% 
+  filter(!(NAC == "No tiene nacionalidad española"))
 
-To use endnotes, change `endnotes: true` in the YAML header, then use
-`\endnote{This is an endnote.}`.
+  sapply(df_NACIONALIDAD, function(x) {mean(is.na(x)) 
+})
+  
+   df <- df %>%
+  mutate(
+    NACNACIMESP = ifelse(is.na(NACNACIMESP), "No tiene nacionalidad española", NACNACIMESP),
+  )
+  
+```
+
+  Finalmente quedaría la variable ANEDI, que solo registra el año de construcción del edificio a partir del año 2000, por tanto todo edificio construido previamente no se relleno, sin embargo tenemos variables que tienen esta información y más por lo que al ser una variable que apenas aporta información relevante podemos eliminarla.
+
+```{r}
+df_CONSTRUCCION <- df %>% 
+  select(ANOANEDI,ANEDI) %>% 
+  filter(ANEDI == "Después del año 2000")
+
+  sapply(df_CONSTRUCCION, function(x) {mean(is.na(x)) 
+})
+  
+table(df$FEDI,df$ANEDI)
+
+df <- df %>% 
+  select(-ANOANEDI & -ANEDI)
+
+df_num <- df_num %>% 
+  select(-ANOANEDI & -ANEDI)
+
+```
+
+  Una vez hecho todo el proceso de busqueda de datos perdidos e imputación, podemos ver como para nuestro conjunto de datos ya no tenemos datos ausentes, de hecho en ningún momento tuvimos (salvo en algún caso muy puntual), sin embargo era necesario añadir nuevas categorías dentro de las variables que capturen esa información implicita.
+  
+  El motivo por el que no se han podido imputar al df numérico todos esos NA es porque ningún tipo de imputación numérica hubiera sido realmente cierta y hubiera sesgado los verdaderos valores del conjunto, un ejemplo ilustrativo es la edad de llegada a España, para un ciudadano nacido en España podríamos imputar el valor 0, sin embargo esto se interpretaría como: "Ha llegado hace 0 años", lo cual sesgaría la distribución de años hacía 0, pues la mayoría de personas que contestó la encuesta eran de nacionalidad española.
+  
+  Este caso es el mismo para todas las variables con valores ausentes, por lo tanto, para no hacer un posterior análisis erroneo, es importante realizar un filtrado correcto de los valores ausentes antes de realizar cálculos numéricos, primero porque si no R no será capaz de realizar cálculos con datos ausentes, pero segundo y más importante, porque al ser NA donde no se pueden imputar datos, se nos esta indicando implicitamente que no debemos de utilizar más datos de los que hay, ya que si no estaríamos contestando preguntas con información de sujetos que no tienen nada que ver con la misma.
+
+```{r}
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
+})
+NA_analisis
+
+```
+
+Con esto hemos eliminado todos los valores ausentes del conjunto de datos, faltaría codificar todos los cambios realizados de forma que no afecte luego en fases posteriores del analisis.
+
+### Cambios de tipo de variables
+
+La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque ahora aparece como una variable de tipo numérico. Por otro lado hemos estado trabajando con una gran cantidad de variables de tipo factor que actualmente aparecen como de tipo caracter y deben ser cambiadas, en la fase de codificación se pasarán a númerico para poder usados en análisis de correlación, modelos de regresión etc.
+
+```{r}
+rm(list=setdiff(ls(), c("df","df_num")))
+df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
+df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
+
+df <- df |> 
+  mutate(PERIODO = yq(PERIODO)) %>% 
+  mutate_if(is.character, factor)
 
 
-# Materials and Methods
+df_num <- df_num |> 
+  mutate(PERIODO = yq(PERIODO)) %>% 
+  mutate_if(is.character, factor)
 
-Materials and Methods should be described with sufficient details to allow 
-others to replicate and build on published results. Please note that publication 
-of your manuscript implicates that you must make all materials, data, computer 
-code, and protocols associated with the publication available to readers. Please
-disclose at the submission stage any restrictions on the availability of 
-materials or information. New methods and protocols should be described in 
-detail while well-established methods can be briefly described and appropriately
-cited.
+str(df)
+```
 
-Research manuscripts reporting large datasets that are deposited in a publicly 
-available database should specify where the data have been deposited and provide
-the relevant accession numbers. If the accession numbers have not yet been
-obtained at the time of submission, please state that they will be provided
-during review. They must be provided prior to publication.
+Analizando los levels de las variables factor nos encontramos con países con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
 
-Interventionary studies involving animals or humans, and other studies require
-ethical approval must list the authority that provided approval and the
-corresponding ethical approval code.
+```{r}
+df <- df %>% 
+  filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  droplevels()
 
-# Results
+df_num <- df_num %>% 
+  filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  droplevels()
+str(df)
+```
 
-This section may be divided by subheadings. It should provide a concise and
-precise description of the experimental results, their interpretation as well
-as the experimental conclusions that can be drawn.
+### Cambio nombre variables
 
-## Subsection Heading Here
+Cambios de nombre de variables para mejorar la claridad de algunas variables
 
-Subsection text here.
-
-### Subsubsection Heading Here
-
-Bulleted lists look like this:
-
-* First bullet
-* Second bullet
-* Third bullet
-
-Numbered lists can be added as follows:
-
-1. First item
-2. Second item
-3. Third item
-
-The text continues here.
-
-## Figures, Tables and Schemes
-
-All figures and tables should be cited in the main text as Figure \ref{fig:fig1}, 
-\ref{tab:tab1}, etc. To get cross-reference to figure generated by R chunks 
-include the `\\label{}` tag in the `fig.cap` attribute of the R chunk: 
-`fig.cap = "Fancy Caption\\label{fig:plot}"`.
-
-```{r fig1, echo=FALSE, fig.width=3, fig.cap="A figure added with a code chunk.\\label{fig:fig1}"}
-x = rnorm(10)
-y = rnorm(10)
-plot(x, y)
+```{r}
+df <- df %>% 
+  rename(
+    PROVINCIA = IDQ_PV,
+    F_CONS_EDI = FEDI,
+    PERS_HOGAR = TAMTOHO,
+    NAC_HO = NACHO,
+    PAIS_NACIM = PNACIMT,
+    EDAD_LLEG_ESP = EDADFLLEG,
+    TPO_LLEG_ESP =TPOFLLEG,
+    PAIS_NAC = PNACT,
+    PAIS_NAC_NACIM = PNACNACIMT,
+    TPO_NAC_ESP = TPOFNACESP,
+    PAIS_NACIM_PADRE = PNACIMPADRET,
+    PAIS_NACIM_MADRE = PNACIMMADRET,
+    RELAC_MIEMBROS = P01,
+    ACTIVIDAD = RELACT,
+)
 ```
 
 
-When making tables using `kable`, it is suggested to use
-the `format="latex"` and `tabl.envir="table"` arguments
-to ensure table numbering and compatibility with the mdpi
-document class.
+### Recodificación de variables
 
-```{r tab1, echo=FALSE}
-knitr::kable(mtcars[1:5, 1:3], format = "latex", 
-             booktabs = TRUE, 
-             caption = "This is a table caption. Tables should be placed in the 
-             main text near to the first time they are~cited.", 
-             align = 'ccc', centering = FALSE,
-             table.envir = "table", position = "H")
+En un inicio nuestro dataset presentaba un tipo de codificación ya establecido, el problema era la dificultad de interpretar el dataset y sus posibles relaciones entonces se decidió descodificar primero las variables para poder entender que significaba cada cosa de forma sencilla. Tras haber realizado una parte del proceso de limpieza del dataset, es necesario recodificarlo, esta vez acorde al tipo de codificación que queramos a la hora de poder hacer un buen análisis de detección de outliers y busqueda de correlaciones entre variables.
+
+Las variables a codificar son aquellas de tipo categórico. Las variables categóricas se dividen en dos grupos: ordinales y cardinales. En las variables categóricas ordinales, las variables se pueden codificar acorde a un orden númerico ya que existe una jerarquia. a > b > c, en las variables cardinales por el contrario, no se aprecia un orden entre las variables: Andalucia !> Aragón. Esto es importante porque para cada caso las técnicas de codificación son distintas.
+
+Como variables ordinales en este caso podemos considerar a TAMAÑO, ESTUDIOS, TIPOVIV, FEDI, mientras que el resto son cardinales.
+
+```{r}
+columnas_dummy <- c("REGVI","NACHO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS")
+
+df_num_fctr <- df_num %>% 
+  select(columnas_dummy) %>% 
+    mutate_all(factor)
+
+
+dummy <- dummyVars(paste("~", paste(columnas_dummy,collapse = " + ")), data = df_num_fctr)
+
+df_dummies <- data.frame(predict(dummy, newdata = df_num_fctr))
+
+df_merged <- cbind(df_num, df_dummies)
+
+df_merged <- df_merged %>% 
+  select(!(columnas_dummy))
+
+df <- df %>% 
+  mutate(METROSVI = as.numeric(METROSVI), EDAD = as.numeric(EDAD))
+```
+
+### Casos posibles a estudiar
+
+1. El tamaño de la provincia afecta a las carácteristicas del hogar?
+
+2. Afecta tu nivel de estudios en donde vives?
+
+3. Tu estado civil tiene relación con tu hogar?
+
+4. Existen diferencias entre nacionales y extranjeros en nivel de estudios, ocupación, hijos, tamaño de población o tipo de vivienda?
+
+5. Esta correlacionada la edad con tu vivienda?
+
+6. Existe alguna diferencia entre los extranjeros nacionalizados y los no nacionalizados?
+
+### Anomalías
+
+```{r}
+
+View(df)
+str(df)
+
+df %>% 
+  count(DORMITORIOS)
+df %>% 
+  count(ASEOS)
+df %>% 
+  count(COMEDORES)
+df %>% 
+  count(TRASTEROS)
+df %>% 
+  count(OTRASHAB)
+
+df_filtrado <- df %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% filter(NPV == 1)
+
+df %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% filter(NPV == 1) %>% count(TIPOVIV)
+```
+
+### Detección de outliers
+
+```{r}
+rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado")))
+boxplot(df_filtrado$METROSVI,
+  ylab = "Metros vivienda",
+  main = "Metros de las viviendas"
+)
+
+boxplot(df_filtrado$DENSIDADVI,
+  ylab = "Densidad vivienda",
+  main = "Densidad de las viviendas por persona"
+)
+
+deteccion_outliers <- function(data){
+
+n<-length(data)
+nMiss<-sum(is.na(data)==TRUE)
+
+# p5-p95
+lowLim<-quantile(data,0.05)
+upLim<-quantile(data,0.95)
+minNom<-min(data[which(data>lowLim)])
+maxNom<-max(data[which(data<upLim)])
+nOut<-length(which(data<lowLim | data>upLim))
+
+outliers<-data.frame(method='p5-p95', n=n, nMiss=nMiss, nOut=nOut, lowLim=lowLim,upLim=upLim,minNom=minNom,maxNom=maxNom)
+
+# 3signa
+umbral3s<-mean(data)+3*sd(data)
+
+nOut3s<-length(data[abs(data)>umbral3s])
+lowLim3s<-mean(data)-3*sd(data)
+upLim3s<-mean(data)+3*sd(data)
+minNom<-min(data[(which(data>=lowLim3s))])
+maxNom<-max(data[(which(data<=upLim3s))])
+
+outliers<-rbind(outliers,data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
+
+# Hampel
+
+MADM<-1.4826*median(abs(data-median(data))) # Se puede calcular como mad(data)
+umbralH<-median(data)+3*MADM
+nOutH<-length(data[abs(data)>umbralH])
+lowLimH<-median(data)-3*MADM
+upLimH<-median(data)+3*MADM
+minNom<-min(data[(which(data>=lowLimH))])
+maxNom<-max(data[(which(data<=upLimH))])
+outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOutH, lowLim=lowLimH,upLim=upLimH,minNom=minNom,maxNom=maxNom))
+
+# Boxplot
+
+Q3Q1<-IQR(data)
+Q3<-quantile(data,probs = 0.75)%>%as.numeric
+Q1<-quantile(data,probs = 0.25)%>%as.numeric
+umbralSup<-Q3+1.5*Q3Q1
+umbralInf<-Q1-1.5*Q3Q1
+
+nOutB<-length(data[data>umbralSup |data<umbralInf])
+lowLimB<-umbralInf
+upLimB<-umbralSup
+minNom<-min(data[(which(data>=lowLimB))])
+maxNom<-max(data[(which(data<=upLimB))])
+outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOutB, lowLim=lowLimB,upLim=upLimB,minNom=minNom,maxNom=maxNom))
+
+return(outliers)
+
+}
+
+deteccion_outliers(df_filtrado$METROSVI)
+#Mas razonable acorde a tres sigma
+deteccion_outliers(df_filtrado$DENSIDADVI)
+#Mas razonable acorde a boxplot
+
+
+df_filtrado <- df %>%
+filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_outliers <- df %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+
+df_filtrado_num <- df_merged %>%
+filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_filtrado_num_outliers <- df_merged %>%
+filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+  
 ```
 
 
 
-For a very wide table, landscape layouts are allowed.
 
 
-\startlandscape
 
-```{r tab2, echo=FALSE}
-df <- data.frame(`Title 1` = c("Entry 1", "Entry 2"),
-                 `Title 2` = c("Data", "Data"),
-                 `Title 3` = c("Data", "Data"),
-                 `Title 4` = c("This cell has some longer content that runs over
-                               two lines",
-                               "Data"))
-knitr::kable(df, format = "latex", 
-             booktabs = TRUE, 
-             caption = "This is a very wide table", 
-             align = 'ccc', centering = FALSE,
-             table.envir = "table", position = "H")
+
+
+
+
+
+
+
+
+
+
+```{r}
+ ui <- dashboardPage(
+    dashboardHeader(title = "Menú dinámico"),
+    dashboardSidebar(
+      sidebarMenu(
+
+        menuItem("Proyecto AED 2023", tabName="title", icon = icon("star"))
+      ),
+      sidebarMenuOutput("menu")
+    ),
+    dashboardBody(tabItems(
+      
+      tabItem(tabName = "info",
+              h1("Información del proyecto"),
+               p("El objetivo de este proyecto es enfrentarse a un problema real de tratamiento de datos que abarque todas las etapas que se describen a lo largo de la asignatura. El proyecto se realiza en grupos de trabajo, lo que  permitire adquirir nuevas compencias relacionadas con el trabajo en equipo, distribución de tareas, puesta en común, resolución de problemas, responsabilidad dentro del grupo, etc."),
+              fluidPage()
+      ),
+      tabItem(tabName = "plots", h2("Mapa interactivo"),
+              fluidRow(column(width = 12, class = "well",
+                              leafletOutput("map")))
+      ),
+      tabItem(tabName = "dashboard", h2("Contenido del dataset hogar"),
+              DT::dataTableOutput("table1")),
+      
+      tabItem(tabName = "dashboard2", h2("Contenido del dataset personas"),
+              DT::dataTableOutput("table2")))
+    )
+ )
+
+
+
+  server <- function(input, output, session) {
+
+    output$menu <- renderMenu({
+      sidebarMenu(
+        menuItem("Información", tabName = "info", icon = icon("info")),
+        
+        menuItem("Menú del Mapa", tabName = "plots", icon = icon("map")),
+
+        menuItem("Datos de hogares", tabName="dashboard", icon = icon("table")),
+        
+        menuItem("Datos de personas", tabName="dashboard2", icon = icon("table"))
+      )
+    })
+
+   output$table1 <- DT::renderDataTable({
+    DT::datatable(hogar, options = list(scrollX = T, scrollY = T))
+  })
+    
+    output$table2 <- DT::renderDataTable({
+    DT::datatable(persona, options = list(scrollX = T, scrollY = T))
+  })
+    
+    output$map <- renderLeaflet({map_spain})
+
+  }
+
+  shinyApp(ui, server)
 ```
 
-\finishlandscape
 
-## Formatting of Mathematical Components
 
-This is an example of an equation:
 
-$$
-a = 1.
-$$
-
-If you want numbered equations use Latex and wrap in the equation environment:
-
-\begin{equation}
-a = 1,
-\end{equation}
-
-the text following an equation need not be a new paragraph. Please punctuate 
-equations as regular text.
-
-```{comment}
-If the documentclass option "submit" is chosen, please insert a blank line before and after any math environment (equation and eqnarray environments). This ensures correct linenumbering. The blank line should be removed when the documentclass option is changed to "accept" because the text following an equation should not be a new paragraph.
-```
-
-This is the example 2 of equation:
-
-\begin{adjustwidth}{-\extralength}{0cm}
-\begin{equation}
-a = b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + 
-u + v + w + x + y + z
-\end{equation}
-\end{adjustwidth}
-
-Theorem-type environments (including propositions, lemmas, corollaries etc.) 
-can be formatted as follows:
-
-Example of a theorem:
-
-::: {.Theorem latex=true}
-Example text of a theorem
-:::
-
-The text continues here. Proofs must be formatted as follows:
-
-Example of a proof:
-
-::: {.proof latex="[Proof of Theorem1]"}
-Text of the proof. Note that the phrase ``of Theorem 1'' is optional if it is 
-clear which theorem is being referred to.
-:::
-
-The text continues here.
-
-# Discussion
-
-Authors should discuss the results and how they can be interpreted in 
-perspective of previous studies and of the working hypotheses. The findings and 
-their implications should be discussed in the broadest context possible. Future 
-research directions may also be highlighted.
-
-# Conclusion
-
-This section is not mandatory, but can be added to the manuscript if the
-discussion is unusually long or complex.
-
-# Patents
-
-This section is not mandatory, but may be added if there are patents resulting
-from the work reported in this manuscript.
