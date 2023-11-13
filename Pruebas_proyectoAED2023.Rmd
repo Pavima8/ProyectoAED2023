@@ -6,12 +6,19 @@ date: "2023-10-12"
 
 ```{r, message = FALSE}
 #librerias
-library(readr)
-library(readxl)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(mapdata)
+
+librerias <- c("readr", "readxl", "dplyr", "tidyr", "ggplot2", "mapdata", "geonames", "lubridate", "caret", "cowplot")
+
+for (i in librerias){
+  if (!require(i, character.only = TRUE)) {
+  # Si no está instalada, instálala
+  install.packages(i, dependencies = TRUE)
+  
+  # Carga la librería después de instalarla
+  library(i, character.only = TRUE)
+} 
+}
+rm(librerias, i)
 ```
 
 ```{r}
@@ -699,7 +706,7 @@ df <- df %>%
 
 _ANÁLISIS UNIVARIANTE_
 
-Como la mayoría de las variables con las que estamos trabajando son categóricas, el estadístico que podemos calcular de ellas es la *MODA*. De variables numéricas tenemos _DENSIDADVI_ y _METROSVI_. Calcularemos algunos de los estadísticos más comunes de estas variables ya que nos podrán ayudar para la comprensión de los datos:
+La mayoría de las variables con las que estamos trabajando son categóricas, variables numéricas solamente tenemos _DENSIDADVI_ y _METROSVI_. Calcularemos algunos de los estadísticos más comunes para _METROSVI_, ya que nos podrán ayudar a una mejor comprensión de los datos:
 
 ```{r}
 cat("La media de metros cuadrados por vivienda es:", mean(df$METROSVI))
@@ -708,45 +715,67 @@ cat("La desviación típica de los metros cuadrados por vivienda es:", sd(df$MET
 ```
 Que la mediana sea menor que la media quiere decir que hay más viviendas con menos metros cuadrados, y las casas con más metros cuadrados, que aumentan el valor de la media, su diferencia de metros debe ser significativa. 
 
-En este caso, una desviación típica de 62.85405 sugiere que los tamaños de las viviendas tienden a alejarse de la media en una cantidad considerable, lo que podría deberse a la presencia de viviendas más grandes y más pequeñas en el conjunto de datos.
+En este caso tenemos una desviación típica de 62.85405, lo cual sugiere que los tamaños de las viviendas tienden a alejarse de la media en una cantidad considerable, lo que podría deberse a la presencia de viviendas más grandes y más pequeñas en el conjunto de datos.
 
 En el análisis bivariante estudiaremos como las variables _DENSIDADVI_ y _METROSVI_ están correlacionadas. Esto se debe a que la variable _DENSIDAVI_ la hemos obtenido del cociente entre _METROSVI_ y _PERS_HOGAR_.
 
 Para algunas de las variables categóricas lo que haremos será un diagrama de barras para ver mejor como se distribuyen las diferentes categorías:
 
-Por ejemplo, analizaremos la variable _REGVI_ ya que los resultados que observemos nos pueden ser de utilidad en el análisis bivariante:
+Analizaremos los diagramas de alguna de las variables (en total tenemos 53 variables categóricas, no podemos analizarlas todas): _TIPOVIV_, _NACIM_, _SEXO_, _EC_ . Los resultados que observemos nos pueden ser de utilidad en el análisis bivariante:
 
 ```{r}
 library(dplyr)
 
 df_saltolinea <- df
 
-df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis \no bajo precio", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia por compra \ncon hipotecas" , REGVI))
+df_saltolinea <- df_saltolinea%>%mutate(TIPOVIV = gsub("Edificio destinado a otros usos \\(e incluye una o más viviendas convencionales\\)", "Otros usos", TIPOVIV))%>%mutate(NACIM = gsub("Fuera de España", "Fuera", NACIM))%>%mutate(TIPOVIV = gsub("Edificio entre 3 y 9 viviendas", "Entre 3 y 9 \nviviendas", TIPOVIV))%>%mutate(TIPOVIV = gsub("Edificio con 10 o más viviendas", "10 o más \nviviendas", TIPOVIV))%>%mutate(TIPOVIV = gsub("Unifamiliar adosada o pareada", "Unifamiliar \nadosada", TIPOVIV))%>%mutate(TIPOVIV = gsub("Edificio con dos viviendas", "Dos \nviviendas", TIPOVIV))%>%mutate(TIPOVIV = gsub("Unifamiliar independiente", "Unifamiliar \nindepend", TIPOVIV))
 ```
 
 
 ```{r}
 library(ggplot2)
+library(cowplot)
 
-ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=REGVI))+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))
+plot_grid(
+  ggplot(df_saltolinea, aes(x=TIPOVIV))+geom_bar(aes(fill=TIPOVIV))+labs(title = "Tipo de vivienda",
+       x = NULL,
+       y = NULL, fill = "Tipo de vivienda")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1)),
+  ggplot(df_saltolinea, aes(x=NACIM))+geom_bar(aes(fill=NACIM))+labs(title = "Lugar de nacimiento",
+       x = NULL,
+       y = NULL, fill = "Lugar de nacimiento")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1)),
+  ggplot(df_saltolinea, aes(x=SEXO))+geom_bar(aes(fill=SEXO))+labs(title = "Sexo",
+       x = NULL,
+       y = NULL, fill = "Sexo")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1)),
+  ggplot(df_saltolinea, aes(x=EC))+geom_bar(aes(fill=EC))+labs(title = "Estado civil",
+       x = NULL,
+       y = NULL, fill = "Estado civil")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1)),
+  nrow = 2, ncol = 2
+) 
 
 rm(df_saltolinea)
 ```
-Observamos que el mayor tipo de viviendas son propias por compra, totalmente pagadas, heredadas o donadas, seguido de las propias por compra con hipotecas. Los otros dos grupos son minoritarios, siendo las cedidas gratis o bajo precio el de menor representación con diferencia.
+Sobre el tipo de vivienda, observamos claramente que predominan los edificios de 10 viviendas o más, aproximadamente la mitad de las personas viven en este tipo de edificios. Los edificios entre 3 y 9 viviendas y los dos tipos de unifamiliares aparecen en cantidades similares y ya en menos número los edificios de dos viviendas y los edificios para otros usos.
+Para la variable del lugar de nacimiento, observamos que de los encuestados la mayoria nacieron en España, casi 25.000 personas nacieron fuera de España de un total de más de 220.000.
+Observamos paridad entre los encuestado/as, aproximadamente la mitad son hombre y la otra mitad mujeres.
+Para el estado civil tenemos dos grandes grupos: los casado/as y soltero/as. Aproximadamente cada grupo lo conforman casi 100.000 personas. Las personas restantes pertenecen a divorciado/as, separado/as, viudo/as en proporciones similares.
+
 
 _ANÁLISIS BIVARIANTE_
 
 *1. El tamaño de la provincia afecta a los metros de la vivienda?*
 
-Para analizar si el tamaño de la provincia tiene alguna relación con los metros de la vivienda usaremos un boxplot. Cómo apunte, hemos cambiado la escala a la logarítmica ya que al haber valores muy grandes no permitían observar bien el gráfico y no se podían sacar conclusiones:
+Para analizar si el tamaño de la provincia tiene alguna relación con los metros de la vivienda usaremos un boxplot. Cabe destacar que hemos cambiado la escala a la logarítmica ya que al haber valores muy grandes no permitían observar bien el gráfico y no se podían sacar conclusiones:
 
 ```{r}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea%>%mutate(TAMANO = gsub("(habitantes)", "hab", TAMANO))
 #En primer lugar transformamos a factor la variable tamano porque nos sera mas facil trabajar con ella de esta forma
 
-lev<-as.vector(unique(df$TAMANO))
+lev<-as.vector(unique(df_saltolinea$TAMANO))
 lev <- lev[c(11, 10, 5, 8, 3, 1, 6, 4, 7, 2, 9)]
 
-df$TAMANO <- factor(df$TAMANO, levels = lev)
+df_saltolinea$TAMANO <- factor(df_saltolinea$TAMANO, levels = lev)
 
 rm(lev)
 ```
@@ -755,16 +784,19 @@ rm(lev)
 ```{r}
 library(ggplot2)
 
-ggplot(df, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+geom_boxplot()+ scale_y_log10()+labs(title = "Boxplot del tamaño de la provincia y los metros de vivienda",
+ggplot(df_saltolinea, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+geom_boxplot()+ scale_y_log10()+labs(title = "Boxplot tamaño de la provincia y los metros de vivienda",
        x = "Tamaño de la provincia",
-       y = "Metros de la vivienda") +
+       y = "Metros de la vivienda", fill= "Tamaño por número \n de habitantes") +
   theme_minimal()+ theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))
 
 ```
-Observando el boxplot vemos como los metros de las viviendas no están muy relacionados con el número de habitantes por $m^2$, los valores del IQR oscilan entre unos $80m^2 $ y unos $200m^2$ de forma aproximada independientemente del tamaño de la provincia. Para los outlieres si que haremos una diferencia, mientras considera outlieres de forma general las viviendas con menos de $60m^2$, para las de $20.000$ habitantes por $m^2$ en adelante son outlieres las viviendas de más de $250m^2$, en cambio para las de menos de 20.000 habitantes por $m^2$ son las de $500m^2$. También sobre los outliers, salvo la categoría de "Menos de 101 habitantes", el resto presentan bastantes outliers, y cuanto mayor el número de habitantes, mayor es el número de outliers. Sobre este hecho podemos deducir que cuanto mayor es el número de habitantes, las viviendas suelen tener una dimensiones similares mientras que cuanto menor es el número de habitantes hay más diversidad en cuanto a las dimensiones de la casa. Además que en los lugares más habitados considera outlieres valores más pequeños que en los otros casos.
+Observando el boxplot vemos como los metros de las viviendas no están muy relacionados con el número de habitantes por $m^2$, los valores del IQR oscilan entre unos $80m^2 $ y unos $200m^2$ de forma aproximada independientemente del tamaño de la provincia. 
+
+Para los outlieres haremos una diferencia: los que se encuentran por debajo de $Q1-1.5\cdot IQR$, y los que se encuentran por encima de $Q3+1.5\cdot IQR$. Para todas las categorías considera, de forma general, outliers las viviendas con menos de $60m^2$. En cambio para los que se encuentran por encima de $Q3+1.5\cdot IQR$ hay una división, para las categorías de más de $20.000$ habitantes por $m^2$ considera outlieres las viviendas de más de $250m^2$, en cambio para las de menos de 20.000 habitantes por $m^2$ son las de $500m^2$. También sobre los outliers, salvo la categoría de "Menos de 101 habitantes", el resto presentan bastantes outliers, y cuanto mayor es el número de habitantes, mayor es el número de outliers. Sobre este hecho podemos deducir que cuanto mayor es el número de habitantes, las viviendas suelen tener unas dimensiones similares mientras que cuanto menor es el número de habitantes hay más diversidad en cuanto a las dimensiones de la casa. Además que en los lugares más habitados considera outlieres valores más pequeños que en los otros casos.
+
+Hay dos outliers, uno en la categoría de 10.001 a 20.000 personas y otro en la de 100.001 a 500.000 personas, que o bien podrían ser un error, que se equivocaron y realmente no corresponde al valor real, o bien si que realmente se trata de unas viviendas realmente grandes.
 
 En último lugar hablaremos sobre la mediana, que analizando el boxplot podemos ver como decrece cuando aumenta el tamaño de la provincia, por lo que cuanto mayor es el número de habitantes por $m^2$, menos metros suelen tener las vivendas. Sin embargo vemos que esta diferencia no es tan grande, la diferencia serán unos $50m^2$.
-
 
 *2. Afecta la actividad que desempeñas con el régimen de la vivienda?*
 
