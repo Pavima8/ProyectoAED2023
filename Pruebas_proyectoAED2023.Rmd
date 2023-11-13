@@ -7,7 +7,7 @@ date: "2023-10-12"
 ```{r, message = FALSE}
 #librerias
 
-librerias <- c("readr", "readxl", "dplyr", "tidyr", "ggplot2", "mapdata", "geonames", "lubridate", "caret", "cowplot")
+librerias <- c("readr", "readxl", "dplyr", "tidyr", "ggplot2", "mapdata", "geonames", "lubridate", "caret", "cowplot", "ggmosaic")
 
 for (i in librerias){
   if (!require(i, character.only = TRUE)) {
@@ -809,7 +809,7 @@ library(dplyr)
 
 df_saltolinea <- df
 
-df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis o bajo precio", REGVI))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo parcial", "Trabajando a \ntiempo parcial", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo completo", "Trabajando a \ntiempo completo", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Dedicado a las labores de mi hogar", "Labores de mi hogar", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Jubilado, prejubilado, retirado de una actividad económica previa", "Jubilado, prejubilado, \nretirado", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Incapacitado para trabajar", "Incapacitado \npara trabajar" , ACTIVIDAD))
+df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis \no bajo precio", REGVI))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo parcial", "Trabajando a \ntiempo parcial", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo completo", "Trabajando a \ntiempo completo", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Dedicado a las labores de mi hogar", "Labores de mi hogar", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Jubilado, prejubilado, retirado de una actividad económica previa", "Jubilado, prejubilado, \nretirado", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Incapacitado para trabajar", "Incapacitado \npara trabajar" , ACTIVIDAD))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia por compra \ncon hipotecas", REGVI))
   
 
 
@@ -823,11 +823,11 @@ rm(df_saltolinea)
 
 Para que fuera más fácil de comprender esta gráfica, hemos asignado colores según el régimen de vivienda. 
 
-A simple vista los casos de casas cedidas gratis o bajo precio por otro hogar, la empresa... ocupan el menor porcentaje de esta variable, independientemente de la actividad que desempeñen los residentes. Podemos destacar que tanto en los residentes jubilados, prejubilados o retirados de una actividad económica previa como en los residentes que desempeñan labores del hogar, con gran diferencia, son los grupos con mayor porcentaje de viviendas propias por compra, totalmente pagada, heredada o donada, ocupando este tipo de régimen de vivienda casi el total de las diferentes categorias. En el caso "no procede" sucede que el mayor porcentaje son las residencias propias por compra con hipoteca, esto se debe a que el tipo de personas que conforman este grupo están formadas por niños y estudiantes parados entre otros, y cómo seguramente vivan en casas de los adultos que los tutoricen y ese motivo de esta distribución. En el resto de actividades, los mayoritarios son las viviendas propias por compra con hipoteca y las viviendas propias por compra, totalmente pagada, heredada o donada, ambas en un porcentaje bastante similar.
+A simple vista los casos de casas cedidas gratis o bajo precio por otro hogar, la empresa... ocupan el menor porcentaje de esta variable, independientemente de la actividad que desempeñen los residentes. Podemos destacar que tanto en los residentes jubilados, prejubilados o retirados de una actividad económica previa como en los residentes que desempeñan labores del hogar, con gran diferencia, son los grupos con mayor porcentaje de viviendas propias por compra, totalmente pagada, heredada o donada, ocupando este tipo de régimen de vivienda casi el total de las diferentes categorias. En el caso "no procede" sucede que el mayor porcentaje son las residencias propias por compra con hipoteca, esto se debe a que el tipo de personas que conforman este grupo están formadas por niños y estudiantes parados entre otros, y cómo seguramente vivan en casas de los adultos que los tutoricen, ese es el motivo de esta distribución. En el resto de actividades, los mayoritarios son las viviendas propias por compra con hipoteca y las viviendas propias por compra, totalmente pagada, heredada o donada, ambas en un porcentaje bastante similar.
 
 *3. Tu estado civil tiene relación con tu hogar?*
 
-En concreto estudiaremos si el estado civil tiene relación con el número de personas en el hogar. En este caso también estamos trabajando con dos variables categóricas.
+En concreto estudiaremos si el estado civil tiene relación con el número de personas en el hogar y con el número de dormitorios. En este caso también estamos trabajando con dos variables categóricas, y graficaremos unos diagramas de barras:
 
 ```{r}
 ### primeramente hacemos factor la variable de numero de habitaciones, dormitorios y personas por hogar
@@ -844,21 +844,25 @@ df$PERS_HOGAR <- factor(df$PERS_HOGAR, levels = sort(unique(df$PERS_HOGAR)))
 ```{r}
 library(ggplot2)
 
-ggplot(df, aes(x=PERS_HOGAR))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Diagrama de barras estado civil y número de personas por hogar",
+plot_grid(
+  ggplot(df, aes(x=PERS_HOGAR))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Diagrama de barras estado civil y número de personas por hogar",
        x = "Personas por hogar",
-       y = "Estado Civil", fill = "Estado Civil")+theme_minimal()
+       y = "Estado Civil", fill = "Estado Civil")+theme_minimal(),
+  ggplot(df, aes(x=DORMITORIOS))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Diagrama de barras estado civil y número de dormitorios por hogar",
+       x = "Dormitorios por hogar",
+       y = "Estado Civil", fill = "Estado Civil")+theme_minimal(),
+  ncol=1, nrow=2
+)
+
+
 ```
-En este diagrama de barras para que se pudiera analizar mejor de forma visual hemos representado en el eje X el número personas que vivien en una casa, que tenemos desde 1 persona hasta 13 personas, y en el eje Y el estado civil. Notemos que hemos aplicado el logaritmo al eje Y para que se pudiera visualizar mejor la diferencia entre los diferentes estados civiles y hacer un mejor análisis. En primer lugar observamos que sin importar el número de miembros en un hogar, siempre tenemos representación de soltero/as y casado/as. Esto se puede deber a que matrimonios pueden tener bastantes hijos o además vivir junto con más familiares, por ello tienen representación hasta para elevado número de personas por hogar. En el caso de soltero/as, compartir piso puede ser una opción y que en algunos casos sea con muchas personas sería la causa de tener representación hasta para números grandes. Para el resto de estados civiles, viudo/a, separado/a, divorciado/a, tenemos representación hasta para 9 personas por vivienda. Estos 3 casos tienen en común que, almenos, se dejaría de convivir con una persona y ese podría ser el motivo por el cual el número de personas por casa es menor. Para un número pequeño de residentesa observamos que las proporciones entre los diferentes estados civiles son bastante similares, pero conforme aumenta el número de residentes las proporciones de viudo/a, separado/a, divorciado/a son las que disminuyen más rápidamente. 
+En estos diagramas de barras para que se pudieran analizar mejor de forma visual hemos representado en el eje X el número personas que vivien en una casa en el primer gráfico y el número de dormitorios en el segundo, y en el eje Y el estado civil. Notemos que hemos aplicado el logaritmo al eje Y para que se pudiera visualizar mejor la diferencia entre los diferentes estados civiles y hacer un mejor análisis. 
+
+Para la primera gráfica observamos que sin importar el número de miembros en un hogar, siempre tenemos representación de soltero/as y casado/as. Esto se puede deber a que matrimonios pueden tener bastantes hijos o además vivir junto con más familiares, por ello tienen representación hasta para elevado número de personas por hogar. En el caso de soltero/as, compartir piso puede ser una opción y que en algunos casos sea con muchas personas sería la causa de tener representación hasta para números grandes. Para el resto de estados civiles, viudo/a, separado/a, divorciado/a, tenemos representación hasta para 9 personas por vivienda. Estos 3 casos tienen en común que, almenos, se dejaría de convivir con una persona y ese podría ser el motivo por el cual el número de personas por casa sea menor. Para un número pequeño de residentesa observamos que las proporciones entre los diferentes estados civiles son bastante similares, pero conforme aumenta el número de residentes las proporciones de viudo/a, separado/a, divorciado/a son las que disminuyen más rápidamente. 
 
 Puede llamarnos la atención que, aunque sea el de menor porcentaje, haya casado/as que vivan solo/as. 
 
-```{r}
-library(ggplot2)
-
-ggplot(df, aes(x=DORMITORIOS))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Diagrama de barras estado civil y número de personas por hogar",
-       x = "Personas por hogar",
-       y = "Estado Civil", fill = "Estado Civil")+theme_minimal()
-```
+Para la segunda gráfica lo primero que nos puede llamar la atención puede ser que haya una vivienda con 31 dormitorios y otra con 18, no podemos saber con certeza si es un error o realmente las residencias cuentan con este número de dormitorios. Entre 0 y 5 dormitorios vemos que las proporciones entre las diferentes categorias son aproximadamente las mismas, siendo los casado/as y soltero/as los más númerosas. A partir de 6 dormitorios esta predominancia se hace más visibles, desapareciendo algunas categorias como  divorciado/as y separado/s para valores más elevados.
 
 *4. Existen diferencias entre nacionales y extranjeros en nivel de estudios, ocupación, número de hijos o tipo de vivienda?*
 
