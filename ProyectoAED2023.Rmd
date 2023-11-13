@@ -1,5 +1,5 @@
 ---
-title: Full title of the paper (Capitalized)
+title: Proyecto AED 2023
 author:
   - name: Adrián Lara
     affil: 1,2,\ddagger,*
@@ -39,16 +39,8 @@ status: submit
 simplesummary: |
   A Simple summary goes here.
 abstract: |
-  A single paragraph of about 200 words maximum. For research articles, 
-  abstracts should give a pertinent overview of the work. We strongly encourage
-  authors to use the following style of structured abstracts, but without 
-  headings: 1) Background: Place the question addressed in a broad context and
-  highlight the purpose of the study; 2) Methods: Describe briefly the main
-  methods or treatments applied; 3) Results: Summarize the article's main 
-  findings; and 4) Conclusion: Indicate the main conclusions or interpretations. 
-  The abstract should be an objective representation of the article, it must not 
-  contain results which are not presented and substantiated in the main text and 
-  should not exaggerate the main conclusions.
+  En este estudio de análisis exploratorio de datos, se examina un extenso conjunto de datos relacionados con hogares y personas, abordando diversas variables cruciales para comprender las dinámicas socioeconómicas. El análisis se centra en aspectos fundamentales de los hogares, como su tamaño, ubicación geográfica y modalidades de adquisición de vivienda. Además, se profundiza en la caracterización de las personas que conforman estos hogares, explorando variables como la edad, nacionalidad y nivel educativo. A través de técnicas estadísticas descriptivas y visualizaciones, se revelan patrones, correlaciones y tendencias emergentes en los datos, arrojando luz sobre las complejas interrelaciones entre los factores estudiados. Este enfoque proporciona una visión integral que no solo destaca la diversidad de contextos residenciales, sino también la heterogeneidad de la población, ofreciendo valiosas perspectivas para la formulación de políticas y la toma de decisiones informada en temas relacionados con la vivienda y el bienestar social.
+  
 # back matter
 keywords: |
   keyword 1; keyword 2; keyword 3 (list three to ten pertinent keywords specific 
@@ -139,7 +131,6 @@ output:
   rticles::mdpi_article:
     extra_dependencies: longtable
 ---
-
 # Version
 
 This Rmd-skeleton uses the mdpi Latex template published 2023-03-25. 
@@ -192,6 +183,7 @@ library(tidyr)
 library(lubridate)
 library(caret)
 library(ggplot2)
+library(ggmosaic)
 library(shiny)
 library(shinydashboard)
 library(dplyr)
@@ -200,7 +192,7 @@ library(DT)
 
 ## Carga de los datos
 
-Los conjuntos de datos se obtuvieron de dos archivos .csv, la carga de los mismos fue bastante sencilla y no supuso ninguna complicación.
+Los conjuntos de datos a estudiar se obtuvieron de dos archivos .csv (*https://www.ine.es/dyngs/INEbase/es/operacion.htm?c=Estadistica_C&cid=1254736176952&menu=resultados&secc=1254736195203&idp=1254735572981#!tabs-1254736195203*), la carga de los mismos fue bastante sencilla ya que el porpio INE proprocionaba **tiny datasets**.
 
 ```{r echo=TRUE}
 hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
@@ -209,7 +201,7 @@ persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t
 persona_2 <- persona
 ```
 
-Los conjuntos de datos con los que inicialmente trabajamos se denominan hogar y persona (hogar_2 y persona_2 se explican a continuación). hogar es un conjunto de 88783 observaciones y 27 variables mientras que persona presenta 220198 observaciones y 27 variables.
+Los conjuntos de datos con los que inicialmente trabajamos se denominan hogar y persona (hogar_2 y persona_2 se explicarán más adelante). hogar es un conjunto de 88783 observaciones y 27 variables mientras que persona presenta 220198 observaciones y 27 variables.
 
 Hay una serie de variables presentes en ambos conjuntos que actuan como primary keys para su posterior unión (codebook). 
 
@@ -224,31 +216,30 @@ str(hogar)
 str(persona)
 ```
 
-  Podemos observar que tenemos muchas variables tipo integer asi como algunas variables de tipo numérico, character y algunas variables de tipo lógico. En este primer vistazo inicial también se observa una gran presencia de valores ausentes (NA's).
+  Podemos observar que tenemos muchas variables tipo *integer* así como algunas variables de tipo *numérico*, *character* y algunas de tipo *lógico*. En este vistazo inicial también se observa una gran presencia de valores ausentes (NA's) en determinadas variables.
 
-
-  El INE nos ofrece un informe con la metodología empleada para la obtención de los datos así como la explicación de las variables que se encuentran en el dataset. Para recoger la información se utilizaron cuestionarios donde el participante debía rellenar en una de las opciones disponibles para cada una de las preguntas que se le hacía, además, hay preguntas que no todos los participantes debían rellenar si no que iba en función de respuestas anteriores, por tanto esto nos aporta información en dos direcciones:
+  El INE nos ofrece un informe con la metodología empleada para la obtención de los datos así como la explicación de las variables que se encuentran en el dataset. Para recoger la información se utilizaron cuestionarios donde el participante debe contestar a cada pregunta con una respuesta dentro de una lista de respuestas predefinidas. Además, hay preguntas que no todos los participantes deben contestar porque dependen de respuestas anteriores, por tanto esto nos aporta información en dos direcciones:
   
   1º. Gran parte de las variables de los conjuntos de datos son categóricas
   
-  2º. Que muchos datos ausentes se deban a no tener que responder una determinada pregunta del cuestionario
+  2º. Muchos datos ausentes se deban a no tener que responder una determinada pregunta
   
-  Al ser una gran cantidad de variables de tipo categórico, estas podían aparecer en forma de texto (factor) o en forma de número (integer). Ambos enfoques tienen sus ventajas e inconvenientes. Si tenemos las variables en formato de texto como factor podemos saber de manera más sencilla que significa cada dato, lo que permite clasificar los datos con mayor facilidad, encontrar relaciones etc. . También nos permite añadir categorías en formato texto alla donde hay NA's como categorías adicionales a las existentes y poder operar con un dataset sin valores ausentes. La principal desventaja es que no se puede modelizar con variables tipo texto, necesitan ser transformadas a numérica para ello. La ventaja de utilizar variables de tipo numérico es la que se acaba de presentar, el poder modelizar. La principal desventaja es el hecho de que en algunas ocasiones y como se explicará posteriormente no se pueden imputar valores a los NA, por muy sofisticada que sea la técnica de imputación simplemente porque no procede como es en este caso.
+  Al ser una gran cantidad de variables de tipo *categórico*, estas podían aparecer en forma de texto (factor), o en forma de número (integer). Ambos enfoques tienen sus ventajas e inconvenientes. Si tenemos las variables en formato texto, como factor, podemos saber de manera más sencilla qué significa cada dato, lo que permite clasificar los datos con mayor facilidad, encontrar relaciones etc. También nos permite añadir categorías en formato texto alla donde hay NA's, como categorías adicionales a las existentes, y poder operar con un dataset sin valores ausentes. La principal desventaja es que no se puede modelizar con variables tipo texto, necesitan ser transformadas a tipo numérico para ello. La ventaja de utilizar variables de tipo numérico es la que se acaba de presentar, el poder modelizar. La principal desventaja es el hecho de que en algunas ocasiones, como se explicará posteriormente, no se pueden imputar valores a los NA simplemente porque no procede hacerlo.
   
-  Por tanto se ha decidido utilizar dos datasets, uno donde transformamos las variables categóricas a texto (exceptuando las que no procede pasar a texto, por ej: Número de aseos), y otro dataset donde mantenemos las variables en un formato numérico(exceptuando algunas donde sería muy complicado de operar y es preferible operar con texto, por ej: Nombre de países). 
+  Por tanto se ha decidido utilizar dos datasets, uno donde transformamos las variables categóricas a texto, y otro dataset donde mantenemos las variables en un formato numérico, exceptuando algunas donde sería muy complicado de operar y es preferible operar con texto, por ejemplo la variable 'Nombre de países'.
   
   - hogar y persona son datasets donde transformamos las variables a tipo texto
-  - hogar_2 y persona_2 donde mantenemos el formato numérico.
+  - hogar_2 y persona_2 datasets donde mantenemos el formato numérico.
   
-  Para este proyecto trabajaremos principalmente sobre el dataset con variables de tipo texto pero se crea el de formato numérico como conjunto de datos que se podría usar para modelizar.
+  Para este proyecto trabajaremos principalmente sobre el dataset con variables de tipo texto pero se crea el de formato numérico como conjunto de datos que se podría usar para modelizar (encoding).
   
   Por tanto vamos a transformar las variables deseadas a formato texto.
   
 ### Transformación de variables
 
-  Para transformar las variables de tipo, utlizamos los diccionarios adjuntos al dataset donde se explica como se llama cada variable, que significa y como está codificada.
+  Para transformar las variables utlizamos los diccionarios adjuntos al dataset, donde se explica cómo se llama cada variable, qué significa y cómo está codificada.
   
-  Cada hoja del diccionario de excel contiene información sobre las variables:
+  Cada hoja del diccionario contiene información sobre las variables:
 
 ```{r variables de hogar a caracter, include=FALSE}
 
@@ -351,7 +342,7 @@ for (i in names(hogar_2)){
 
 ```
 
-  Repetimos este proceso para el conjunto de datos de personas/personas_2
+  Repetimos este proceso para el conjunto de datos de persona/persona_2
 
 ```{r df personas, include=FALSE}
 
@@ -546,7 +537,7 @@ for (i in names(persona_2)){
 }
 ```
 
-  De este modo hemos trasfromado las variables que queriamos tener en texto y hemos mantenido aquellas variables númericas de interés para poder tener un df utilizable para modelizar y otro para analizar las variables cualitativas.
+  De este modo hemos trasfromado las variables que queriamos tener en texto y mantenemos aquellas variables númericas de interés para poder tener un df utilizable para modelizar y otro para analizar cualitativamente.
 
 ```{r}
 head(persona)
@@ -555,7 +546,7 @@ head(persona_2)
 head(hogar_2)
 ```
 
-  Hecho esto unimos los subconjuntos de datos para tener el conjunto que vamos a utilizar para el análisis.
+  Unimos finalmente los subconjuntos de datos para tener el conjunto que vamos a utilizar en el análisis.
   
   - df: Donde almacenamos la mayor parte de las variables en tipo texto
   
@@ -570,7 +561,7 @@ df_num <- full_join(hogar_2,persona_2)
 rm(list=setdiff(ls(), c("df","df_num","hogar","persona","hogar_2","persona_2")))
 ```
 
-  Obervamos la estructura del df y observamos una variable (PERIODO) que presenta un formato de tipo integer pero que realmente representa el año y el trimestre de toma de los datos por lo que se ajusta más a un tipo fecha realmente.
+  Obervamos la estructura del df y observamos una variable (PERIODO) que presenta un formato de tipo integer, pero que realmente representa el año y el trimestre de toma de los datos, por lo que se ajusta más a un tipo fecha.
 
 ```{r}
 str(df)
@@ -589,14 +580,13 @@ df_num <- df_num |>
   # Si se carga este chunk multiples veces dará error, en ese caso vuelve a cargar el chunk inmediatamente arriba para volver a cargar los df en sus estado anteriores.
 ```
   
-  Las variables de tipo character las podemos trasnformar a factor, sin embargo nos vamos a esperar a haber realizado primero el análisis de NA's ya que vamos a crear nuevas categorías de datos al imputar muchos de esos valores NA.
-
+  Las variables de tipo *character* las podemos trasnformar a factor, sin embargo nos vamos a esperar a haber realizado primero el análisis de NA's ya que vamos a crear nuevas categorías de datos al imputar valores.
 
 ### Análisis de NA's
 
-  El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos o a que no procede establecer ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a que en la encuesta que proporciona el INE a los miembros del hogar, algunas preguntas se contestan o no en función de como contestaron pregunatas anteriores. Por tanto, si analizamos el porque de cada caso podemos obtener información adicional.
+  El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos, o que no proceda la existencia de ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a lo comentado previamente sobre que hay algunas preguntas a las que n0o corresponde contetsra dependiendo de las respuestas dadas previamente. Por tanto, si analizamos el por qué de cada caso, podremos obtener información adicional.
   
-  Como veremos a continuación no tiene sentido asignar un valor numérico a un valor NA, por tanto para nuestro dataset numérico no tiene sentido imputar valores a los NA. Si se quisiera modelizar o utilizar cualquier técnica que requiera cálculos, es imprescindible tener el dataset adaptado a cada modelo que se quiera realizar aplicando distintos filtros que hace que desaparezcan los NA. Por ej. filtrar por mayores de 16 años. Esto se analizará con más detalle a lo largo de la sección.
+  Como veremos a continuación, no tiene sentido asignar un valor numérico a un valor NA, por tanto para nuestro dataset numérico no tiene sentido imputar valores a los NA. Si se quisiera modelizar o utilizar cualquier técnica que requiera cálculos, es imprescindible tener el dataset adaptado a cada modelo que se quiera implementar, aplicando distintos filtros que hace que desaparezcan los NA. Por ejemplo, filtrar la edad en valores mayores de 16 años. Esto se analizará con más detalle a lo largo de la sección.
   
   Aqui vemos el porcentaje de NA's por variable:
 
@@ -606,7 +596,7 @@ NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
 NA_analisis 
 ```
 
-  Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16% etc. .Un aspecto interesante que podemos observar, es que hay variables que tienen exactamente el mismo porcentaje de NA's, esto podría indicarnos relaciones entre las variables.
+  Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16%, etc. Un aspecto interesante que podemos observar, es que hay variables que tienen exactamente el mismo porcentaje de NA's, esto podría indicarnos relaciones entre las variables.
 
   Las primeras variables que vamos a analizar son P01:P19. Estas indican las relaciones de parentesco entre los miembros del hogar.
 
@@ -637,12 +627,12 @@ NA_analisis_P <- mean(is.na(df[,"P01"]) * 100)
 NA_analisis_P
 
 ```
-
-  Si le imputamos al miembro que realizó la encuesta NPV == 1 el valor "Miembro encuestado", lo cual podemos hacer pues la relación consigo mismo y eliminamos el resto de variables vemos que realmente no tenemos valores ausentes. Esta tendencia de mediante una sola operación de imputación razonable desaparecen los valores ausentes es recurrente en el dataset.
-
-  A continuación se estudian todas aquellas variables que tienen relación con el nucleo familiar, (EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,PAREJA,NUCLEOFAM, NHIJOMENOR,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO), todas ellas estan relacionadas ya que la información que contienen varía ligeramente, sin embargo, observamos que si los individuos que contestaron el cuestionario en el apartado de PAREJA establecieron que "No convive en pareja", hacia que se quedara sin contestar pues no se puede contestar algo sobre el EC de la pareja sin tenerla por poner un ejemplo.
   
-  Para las variables NUCLEOFAM NHIJOPAR y NHIJO se han tenido que realizar imputaciones de datos pues en principio no hay ningún criterio conocido por el que esos datos no estuvieran presentes. Se le buscaron variables que contengan información muy similar o igual a la información que recoge la variable. Al tener el dataset una gran cantidad de variables con cambios marginales entre una y otra, podemos imputar datos de una variable a otra de forma relativamente razonable, además el número de datos perdidos en este caso es relativamente pequeño (no más de un 3% de NA reales de esas variables).
+  Si le imputamos al miembro que realizó la encuesta, NPV == 1 el, valor "Miembro encuestado" (lo cual tendría sentido), y eliminamos el resto de variables, vemos que realmente no tenemos valores ausentes. Esta tendencia de, mediante una sola operación de imputación razonable, arreglar los valores ausentes, es recurrente en el dataset.
+
+  A continuación se estudian todas aquellas variables que tienen relación con el nucleo familiar, (EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,PAREJA,NUCLEOFAM, NHIJOMENOR,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO), todas ellas estan relacionadas ya que la información que contienen varía ligeramente, sin embargo, observamos que si los individuos que contestaron el cuestionario en el apartado de PAREJA establecieron que "No convive en pareja", hacía que se quedara sin contestar, pues no se puede contestar algo sobre el EC de la pareja sin tenerla.
+  
+  Para las variables **NUCLEOFAM NHIJOPAR** y **NHIJO**, se han tenido que realizar imputaciones de datos, pues en principio no hay ningún criterio conocido por el que esos datos no estuvieran presentes. Se buscaron variables que contengan información muy similar o igual a la información que recoge la variable. Al tener el dataset una gran cantidad de variables con cambios marginales entre una y otra, podemos imputar datos de una variable a otra de forma relativamente razonable, además el número de datos perdidos en este caso es relativamente pequeño (no más de un 3% de NA reales de esas variables).
   
   La lista completa de relaciones se puede visualizar en el código.
 
@@ -694,9 +684,9 @@ df_EC_2 <- df %>%
   
 ```
 
-  Seguidamente podemos ver que las variables ESTUDIOS y RELACT también tienen valores ausentes relacionados. Estas preguntas del cuestionario solo se tomaron a los mayores de 16 años, por tanto si filtramos el df por edad, vemos que los NA desaparecen completamente.
+  Seguidamente podemos ver que las variables **ESTUDIOS** y **RELACT** también tienen valores ausentes relacionados. Estas preguntas del cuestionario solo se tomaron a los mayores de 16 años, por tanto si filtramos el df por edad, vemos que los NA's desaparecen.
   
-  De forma análoga, aquellos que contestaron que no se encontraban "Trabajando a tiempo completo" o "Trabajando a tiempo parcial", no correspondía que contestaran nada en el apartado de OCUPA ya que no trabajan.
+  De forma análoga, aquellos que contestaron que no se encontraban "Trabajando a tiempo completo" o "Trabajando a tiempo parcial", no correspondía que contestaran nada en el apartado de **OCUPA**, ya que no trabajan.
 
 ```{r}
 df_EDAD <- df %>% 
@@ -725,7 +715,7 @@ df_OCUPADOS <- df %>%
   )
 ```
 
-  Respecto a las variables relacionadas con el lugar de nacimiento y la nacionalidad, había apartados que correspondía responder en función o no de la nacionalidad del encuestado, por ejemplo, los ciudadanos nacidos en España no debían contestar cuando llegaron a España o cuando obtuvieron la nacionalidad. Que valores ausentes había y como se han imputado se puede ver en el código abajo:
+  Respecto a las variables relacionadas con el **lugar de nacimiento** y la **nacionalidad**, hay apartados en los que correspondía responder en función o no de la nacionalidad del encuestado, por ejemplo, los ciudadanos nacidos en España no debían contestar cuándo llegaron a España o cuándo obtuvieron la nacionalidad. Qué valores ausentes había y cómo se han imputado se puede ver en el código abajo:
 
 ```{r}
 df_extranjeros <- df %>% 
@@ -758,7 +748,7 @@ select(NACNACIMESP,NAC) %>%
   
 ```
 
-  Finalmente quedaría la variable ANEDI, que solo registra el año de construcción del edificio a partir del año 2000, por tanto todo edificio construido previamente no se relleno, sin embargo tenemos variables que tienen esta información y más por lo que al ser una variable que apenas aporta información relevante podemos eliminarla.
+  Finalmente quedaría la variable **ANEDI**, que solo registra el año de construcción del edificio a partir del año 2000. Por tanto, todo edificio construido previamente no se incluyó. Sin embargo, tenemos variables que tienen esta información y más, por lo que al ser una variable que apenas aporta información relevante, podemos eliminarla.
 
 ```{r}
 df_CONSTRUCCION <- df %>% 
@@ -785,8 +775,7 @@ df_num <- df_num %>%
   Este caso es el mismo para todas las variables con valores ausentes, por lo tanto, para no hacer un posterior análisis erroneo, es importante realizar un filtrado correcto de los valores ausentes antes de realizar cálculos numéricos, primero porque si no R no será capaz de realizar cálculos con datos ausentes, pero segundo y más importante, porque al ser NA donde no se pueden imputar datos, se nos esta indicando implicitamente que no debemos de utilizar más datos de los que hay, ya que si no estaríamos contestando preguntas con información de sujetos que no tienen nada que ver con la misma.
 
 ```{r}
-NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
-})
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100})
 NA_analisis
 
 ```
@@ -895,10 +884,200 @@ df <- df %>%
 
 6. Existe alguna diferencia entre los extranjeros nacionalizados y los no nacionalizados?
 
+### Casos a estudiar
+
+_ANÁLISIS UNIVARIANTE_
+
+Como la mayoría de las variables con las que estamos trabajando son categóricas, el estadístico que podemos calcular de ellas es la *MODA*. De variables numéricas tenemos _DENSIDADVI_ y _METROSVI_. Calcularemos algunos de los estadísticos más comunes de estas variables ya que nos podrán ayudar para la comprensión de los datos:
+
+```{r}
+cat("La media de metros cuadrados por vivienda es:", mean(df$METROSVI))
+cat("La mediana de metros cuadrados por vivienda es:", median(df$METROSVI))
+cat("La desviación típica de los metros cuadrados por vivienda es:", sd(df$METROSVI))
+```
+Que la mediana sea menor que la media quiere decir que hay más viviendas con menos metros cuadrados, y las casas con más metros cuadrados, que aumentan el valor de la media, su diferencia de metros debe ser significativa. 
+
+En este caso, una desviación típica de 62.85405 sugiere que los tamaños de las viviendas tienden a alejarse de la media en una cantidad considerable, lo que podría deberse a la presencia de viviendas más grandes y más pequeñas en el conjunto de datos.
+
+En el análisis bivariante estudiaremos como las variables _DENSIDADVI_ y _METROSVI_ están correlacionadas. Esto se debe a que la variable _DENSIDAVI_ la hemos obtenido del cociente entre _METROSVI_ y _PERS_HOGAR_.
+
+Para algunas de las variables categóricas lo que haremos será un diagrama de barras para ver mejor como se distribuyen las diferentes categorías:
+
+Por ejemplo, analizaremos la variable _REGVI_ ya que los resultados que observemos nos pueden ser de utilidad en el análisis bivariante:
+
+```{r}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis \no bajo precio", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia por compra \ncon hipotecas" , REGVI))
+```
+
+
+```{r}
+ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=REGVI))+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))
+
+rm(df_saltolinea)
+```
+Observamos que el mayor tipo de viviendas son propias por compra, totalmente pagadas, heredadas o donadas, seguido de las propias por compra con hipotecas. Los otros dos grupos son minoritarios, siendo las cedidas gratis o bajo precio el de menor representación con diferencia.
+
+_ANÁLISIS BIVARIANTE_
+
+*1. El tamaño de la provincia afecta a los metros de la vivienda?*
+
+Para analizar si el tamaño de la provincia tiene alguna relación con los metros de la vivienda usaremos un boxplot. Cómo apunte, hemos cambiado la escala a la logarítmica ya que al haber valores muy grandes no permitían observar bien el gráfico y no se podían sacar conclusiones:
+
+```{r}
+#En primer lugar transformamos a factor la variable tamano porque nos sera mas facil trabajar con ella de esta forma
+
+lev<-as.vector(unique(df$TAMANO))
+lev <- lev[c(11, 10, 5, 8, 3, 1, 6, 4, 7, 2, 9)]
+
+df$TAMANO <- factor(df$TAMANO, levels = lev)
+
+rm(lev)
+```
+
+
+```{r}
+ggplot(df, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+geom_boxplot()+ scale_y_log10()+labs(title = "Boxplot del tamaño de la provincia y los metros de vivienda",
+       x = "Tamaño de la provincia",
+       y = "Metros de la vivienda") +
+  theme_minimal()+ theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))
+
+```
+Observando el boxplot vemos como los metros de las viviendas no están muy relacionados con el número de habitantes por $m^2$, los valores del IQR oscilan entre unos $80m^2 $ y unos $200m^2$ de forma aproximada independientemente del tamaño de la provincia. Para los outlieres si que haremos una diferencia, mientras considera outlieres de forma general las viviendas con menos de $60m^2$, para las de $20.000$ habitantes por $m^2$ en adelante son outlieres las viviendas de más de $250m^2$, en cambio para las de menos de 20.000 habitantes por $m^2$ son las de $500m^2$. También sobre los outliers, salvo la categoría de "Menos de 101 habitantes", el resto presentan bastantes outliers, y cuanto mayor el número de habitantes, mayor es el número de outliers. Sobre este hecho podemos deducir que cuanto mayor es el número de habitantes, las viviendas suelen tener una dimensiones similares mientras que cuanto menor es el número de habitantes hay más diversidad en cuanto a las dimensiones de la casa. Además que en los lugares más habitados considera outlieres valores más pequeños que en los otros casos.
+
+En último lugar hablaremos sobre la mediana, que analizando el boxplot podemos ver como decrece cuando aumenta el tamaño de la provincia, por lo que cuanto mayor es el número de habitantes por $m^2$, menos metros suelen tener las vivendas. Sin embargo vemos que esta diferencia no es tan grande, la diferencia serán unos $50m^2$.
+
+
+*2. Afecta la actividad que desempeñas con el régimen de la vivienda?*
+
+En este caso analizaremos si existe alguna relación entre la actividad que realizan los residentes y el régimen de la vivienda. Cómo en este caso estamos trabajando con dos variables categóricas entonces usaremos un mosaico para ver la relación entre estas dos variables:
+
+```{r}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis o bajo precio", REGVI))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo parcial", "Trabajando a \ntiempo parcial", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo completo", "Trabajando a \ntiempo completo", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Dedicado a las labores de mi hogar", "Labores de mi hogar", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Jubilado, prejubilado, retirado de una actividad económica previa", "Jubilado, prejubilado, \nretirado", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Incapacitado para trabajar", "Incapacitado \npara trabajar" , ACTIVIDAD))
+  
+
+
+# Crear el gráfico de mosaico con ggplot2 y ggmosaic
+ggplot(df_saltolinea)+geom_mosaic(aes(x=product(REGVI, ACTIVIDAD), fill=REGVI))+labs(title = "Mosaico de actividades según régimen de vivienda",
+       x = "Actividades",
+       y = "Régimen de vivienda", fill = "Régimen de vivienda")+theme_minimal()+ theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1), axis.text.y = element_text(angle = 330, vjust = 0.95, hjust=1))
+
+rm(df_saltolinea)
+```
+
+Para que fuera más fácil de comprender esta gráfica, hemos asignado colores según el régimen de vivienda. 
+
+A simple vista los casos de casas cedidas gratis o bajo precio por otro hogar, la empresa... ocupan el menor porcentaje de esta variable, independientemente de la actividad que desempeñen los residentes. Podemos destacar que tanto en los residentes jubilados, prejubilados o retirados de una actividad económica previa como en los residentes que desempeñan labores del hogar, con gran diferencia, son los grupos con mayor porcentaje de viviendas propias por compra, totalmente pagada, heredada o donada, ocupando este tipo de régimen de vivienda casi el total de las diferentes categorias. En el caso "no procede" sucede que el mayor porcentaje son las residencias propias por compra con hipoteca, esto se debe a que el tipo de personas que conforman este grupo están formadas por niños y estudiantes parados entre otros, y cómo seguramente vivan en casas de los adultos que los tutoricen y ese motivo de esta distribución. En el resto de actividades, los mayoritarios son las viviendas propias por compra con hipoteca y las viviendas propias por compra, totalmente pagada, heredada o donada, ambas en un porcentaje bastante similar.
+
+*3. Tu estado civil tiene relación con tu hogar?*
+
+En concreto estudiaremos si el estado civil tiene relación con el número de personas en el hogar. En este caso también estamos trabajando con dos variables categóricas.
+
+```{r}
+### primeramente hacemos factor la variable de numero de habitaciones, dormitorios y personas por hogar
+
+df$HABVI <- factor(df$HABVI, levels = sort(unique(df$HABVI)))
+
+df$DORMITORIOS <- factor(df$DORMITORIOS, levels = sort(unique(df$DORMITORIOS)))
+
+df$PERS_HOGAR <- factor(df$PERS_HOGAR, levels = sort(unique(df$PERS_HOGAR)))
+
+```
+
+
+```{r}
+ggplot(df, aes(x=PERS_HOGAR))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Diagrama de barras estado civil y número de personas por hogar",
+       x = "Personas por hogar",
+       y = "Estado Civil", fill = "Estado Civil")+theme_minimal()
+```
+En este diagrama de barras para que se pudiera analizar mejor de forma visual hemos representado en el eje X el número personas que vivien en una casa, que tenemos desde 1 persona hasta 13 personas, y en el eje Y el estado civil. Notemos que hemos aplicado el logaritmo al eje Y para que se pudiera visualizar mejor la diferencia entre los diferentes estados civiles y hacer un mejor análisis. En primer lugar observamos que sin importar el número de miembros en un hogar, siempre tenemos representación de soltero/as y casado/as. Esto se puede deber a que matrimonios pueden tener bastantes hijos o además vivir junto con más familiares, por ello tienen representación hasta para elevado número de personas por hogar. En el caso de soltero/as, compartir piso puede ser una opción y que en algunos casos sea con muchas personas sería la causa de tener representación hasta para números grandes. Para el resto de estados civiles, viudo/a, separado/a, divorciado/a, tenemos representación hasta para 9 personas por vivienda. Estos 3 casos tienen en común que, almenos, se dejaría de convivir con una persona y ese podría ser el motivo por el cual el número de personas por casa es menor. Para un número pequeño de residentesa observamos que las proporciones entre los diferentes estados civiles son bastante similares, pero conforme aumenta el número de residentes las proporciones de viudo/a, separado/a, divorciado/a son las que disminuyen más rápidamente. 
+
+Puede llamarnos la atención que, aunque sea el de menor porcentaje, haya casado/as que vivan solo/as. 
+
+```{r}
+ggplot(df, aes(x=DORMITORIOS))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Diagrama de barras estado civil y número de personas por hogar",
+       x = "Personas por hogar",
+       y = "Estado Civil", fill = "Estado Civil")+theme_minimal()
+```
+
+*4. Existen diferencias entre nacionales y extranjeros en nivel de estudios, ocupación, número de hijos o tipo de vivienda?*
+
+Primeramente trataremos de representar cada variable con respecto a si son nacionales o no. Como para todos los casos ambas variables son categóricas tendremos que optar o por un diagrama de barras o por un mosaico. Para la variable _ESTUDIOS_:
+
+```{r}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea %>%
+  mutate(
+    ESTUDIOS = gsub("Llegó al último curso de ESO, EGB o Bachiller Elemental o tiene el Certificado de Escolaridad o de Estudios Primarios", "Llegó al último curso de ESO o similar", ESTUDIOS),
+    ESTUDIOS = gsub("Diplomatura universitaria, Arquitectura Técnica, Ingeniería Técnica o equivalente", "Diplomatura universitaria", ESTUDIOS),
+    ESTUDIOS = gsub("Fue a la escuela 5 años o más pero no llegó al último curso de la ESO, EGB o Bachiller Elemental", "Fue a la escuela 5 años o más", ESTUDIOS),
+    ESTUDIOS = gsub("FP grado medio, FP I, Oficialía Industrial o equivalente, Grado Medio de Música y Danza, Certificados de Escuelas Oficiales de Idiomas", "FP grado medio", ESTUDIOS),
+    ESTUDIOS = gsub("Bachiller \\(LOE, LOGSE\\), BUP, Bachiller Superior, COU, PREU", "Bachiller o equivalente", ESTUDIOS),
+    ESTUDIOS = gsub("Master oficial universitario \\(a partir de 2006\\), Especialidades Médicas o análogos", "Master oficial universitario", ESTUDIOS),
+    ESTUDIOS = gsub("FP grado superior, FP II, Maestría industrial o equivalente", "FP grado superior o equivalente", ESTUDIOS),
+    ESTUDIOS = gsub("Sabe leer y escribir pero fue menos de 5 años a la escuela", "Sabe leer y escribir", ESTUDIOS),
+    ESTUDIOS = gsub("Licenciatura, Arquitectura, Ingeniería o equivalente", "Licenciatura o equivalente", ESTUDIOS)
+  )
+
+
+ggplot(df_saltolinea)+geom_mosaic(aes(x=product(ESTUDIOS, NACIM), fill=ESTUDIOS))+labs(title = "Mosaico de estudios según si nacieron en España",
+       x = "Nacimiento en España",
+       y = "Estudios", fill = NULL)+theme_minimal()+ theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1), axis.text.y = element_text(angle = 330, vjust = 0.95, hjust=1))
+
+```
+
+Del mosaico podemos deducir que de las personas que se recopilaron los datos la mayoria nacieron en España. Sobre las personas nacidas en España, el grupo predominante son los que llegaron al último curso de ESO o similar seguido de "No procede". Recordemos que el grupo "No procede" está formado por los menores de 16 años.  Comparandolo con las personas nacidas fuera de España, este sigue siendo el grupo predominante, pero le sigue de cerca el de las personas que tienen bachiller o equivalentes, cosa que no sucede en el de las personas nacidas en España. El resto de categorias si que estan en proporciones similares tanto para nacido en España como para los que no. Destacar que los que aparecen en menor número son los que no saben leer o escribir, lo que poseen Máster oficial universitario, y los que tienen doctorado. 
+
+*Para no abusar de los diagramas de barras se ha representado con un mosaico, aunque parece que queda más claro con barras como se observa en la siguiente gráfica:*
+
+```{r}
+ggplot(df_saltolinea, aes(x=ESTUDIOS))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama de barras estudios según si nacieron o no en España",
+       x = "Estudios",
+       y = "Número de personas", fill = "Donde nacieron")
+rm(df_saltolinea)
+```
+
+Para el caso de analizar el lugar de nacimiento con respecto a la ocupación sucede lo mismo,  con un mosaico no queda claro como se distribuyen las diferentes variables por lo que es mejor usar un diagrama de barras:
+
+```{r}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea %>%
+  mutate(
+    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato indefinido", "Asalariado o trabajador \npor cuenta ajena con \ncontrato indefinido", OCUPA),
+    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato eventual o temporal", "Asalariado o trabajador \npor cuenta ajena con \ncontrato eventual o temporal", OCUPA),
+    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que no emplea a otras personas", "Empresario, profesional \no trabajador por cuenta \npropia que no emplea \na otras personas", OCUPA),
+    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que emplea a otras personas", "Empresario, profesional \no trabajador por cuenta \npropia que emplea \na otras personas", OCUPA)
+    
+  )
+
+ggplot(df_saltolinea, aes(x=OCUPA))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama de barras ocupación según si nacieron o no en España",
+       x = "Ocupación",
+       y = "Número de personas", fill = "Donde nacieron")
+rm(df_saltolinea)
+```
+Sobre las personas nacidas en España notamos que la mayoría de ellas no trabajan, casi 125.000,  siendo más del doble con respecto a la siguiente categoría más numerosa. Le siguen los asalariados o trabajadores con contrato indefinido con casi 50.000 personas y el resto de categorías tienen cifras bastante inferiores, con menos de 25.000 personas. Para los nacidos fuera de España al tratarse de menos muestras en ninguna de las categorías se superan las 25.000 personas. Sin embargo si destaca que el mayor número se concentra en las que no trabajan,  seguido, con cifras similares, los asalariados o trabajadores en ambas categorías. Y con apenas representación quedan los empresarios.
+
+```{r}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis \no bajo precio", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia por compra \ncon hipotecas", REGVI))
+
+ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama de barras régimen de vivienda según si nacieron o no en España",
+       x = "Régimen de vivienda",
+       y = "Número de personas", fill = "Donde nacieron")
+
+rm(df_saltolinea)
+
+```
+
 ### Anomalías
 
 ```{r}
-
 View(df)
 str(df)
 
@@ -1010,20 +1189,6 @@ filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r}
  ui <- dashboardPage(
     dashboardHeader(title = "Menú dinámico"),
@@ -1083,7 +1248,5 @@ filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI
 
   shinyApp(ui, server)
 ```
-
-
 
 
