@@ -4,10 +4,50 @@ output: html_document
 date: "2023-10-12"
 ---
 
-```{r}
-library(readr)
-library(readxl)
-```
+# Introducción
+
+Todo problema que pretenda ser resulto mediante datos, requiere de en primer lugar, investigar y conocer acerca del problema o pregunta que un individuo u organización presenta y en segundo lugar, si tiene disponibilidad a los datos que considera que necesita para realizar el análisis pretinente.
+
+Para la realización del proyecto, hemos utilizado el conjunto de datos que proporciona el Instituto Nacional de Estadística (INE), sobre la Encuesta continua de hogares, a partir de ahora (ECH). Se compone de dos subconjuntos de datos, uno relativo a los aspectos relacionados con las carácteristicas de los hogares y el otro relativo a aspectos personales de los miembros que residen en dichos hogares.
+
+## Consideraciones iniciales
+
+Las variables que inicialmente presenta el conjunto de datos, así como toda consideración o cambio que sea relevante, queda remarcado en el codebook adjunto al proyecto, de forma que este análisis pueda ser reproducible por quien quiera replicar, modificar o buscar conclusiones diferentes a las que aquí se exponen.
+
+Este proyecto no indaga en procesos posteriores al mero análisis exploratorio, es decir, no se realiza ninguna selección de modelos o validación de los mismos, simplemente los limitamos a la primera fase que es la que permite la posterior modelización en un problema de tratamiento de datos. 
+
+## Objetivo
+
+Como hemos dicho anteriormente, nuestro conjunto de datos principal se compone de dos subconjuntos, nuestro objetivo es unir ambos conjuntos de datos, obteniendo así un dataset combinado, tras esto, manipular el conjunto de datos de manera que nos permita utilizarlo para poder utilizarlo para poder resolver o contestar aquellos problemas/dudas inicialmente planteadas. La única diferencia es que nosotros mostramos posibles preguntas luego de la fase de manipulación del dataset, puesto que lo que queremos es mostrar como es el proceso de análisis exploratorio, más que contestar una pregunta en sí.
+
+## Estructura del proyecto
+
+Nosotros dividimos el proyecto fundamentalmente en tres fases:
+
+  - Carga de los datos
+
+  - Limpieza de los datos
+
+  - Análisis exploratorio
+  
+Limpieza de los datos: Consiste en realizar todos los cambios necesarios al conjunto de datos para que pueda ser utilizado en el anáisis posterior, dentro de estos cambios, podemos destacar:
+
+  - Unión de datasets
+
+  - Clasificación de las variables (Categóricas o numéricas)
+  
+  - Cambio de formato de las variables 
+
+  - Análisis, detección y tratamiento de NA's
+  
+  - Recodificación de variables categóricas 
+  
+  - Busqueda de inconsistencias y anomalías
+  
+  - Detección y tratamiento de outliers
+  
+Análisis exploratorio: $Rellenad Vosotros$
+
 
 ```{r}
 # En este chunK de código voy a poner, comentado para saber que hay que modificarlo o borrarlo, info relevante acerca de los campos, para no tener que mirarla en el fichero director
@@ -41,8 +81,11 @@ library(readxl)
 
 ```
 
+### Librerias
 
-```{r include=FALSE}
+Estas son las librerías que utilizaremos a lo largo del proyecto.
+
+```{r echo=TRUE, warning=FALSE}
 #librerias
 library(readr)
 library(readxl)
@@ -50,24 +93,73 @@ library(dplyr)
 library(tidyr)
 library(lubridate)
 library(caret)
+library(ggplot2)
+library(shiny)
 ```
 
+## Carga de los datos
 
-```{r}
+Los conjuntos de datos se obtuvieron de dos archivos .csv, la carga de los mismos fue bastante sencilla y no supuso ninguna complicación.
+
+```{r echo=TRUE}
 hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
 hogar_2 <- hogar
 persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
 persona_2 <- persona
 ```
 
-Tenemos un diccionario para leer los datos, lo vamos a intentar usar para leer los datos con el formato deseado:
+Los conjuntos de datos con los que inicialmente trabajamos se denominan hogar y persona (hogar_2 y persona_2 se explican a continuación). hogar es un conjunto de 88783 observaciones y 27 variables mientras que persona presenta 220198 observaciones y 27 variables.
+
+Hay una serie de variables presentes en ambos conjuntos que actuan como primary keys para su posterior unión (codebook). 
+
+## Limpieza de los datos
+
+Antes de empezar a trabajar en los dataset miramos la estructura de las variables asi como un primer vistazo preeliminar.
+
+```{r}
+View(hogar)
+View(persona)
+str(hogar)
+str(persona)
+```
+
+  Podemos observar que tenemos muchas variables tipo integer asi como algunas variables de tipo numérico, character y algunas variables de tipo lógico. En este primer vistazo inicial también se observa una gran presencia de valores ausentes (NA's).
+
+
+  El INE nos ofrece un informe con la metodología empleada para la obtención de los datos así como la explicación de las variables que se encuentran en el dataset. Para recoger la información se utilizaron cuestionarios donde el participante debía rellenar en una de las opciones disponibles para cada una de las preguntas que se le hacía, además, hay preguntas que no todos los participantes debían rellenar si no que iba en función de respuestas anteriores, por tanto esto nos aporta información en dos direcciones:
+  
+  1º. Gran parte de las variables de los conjuntos de datos son categóricas
+  
+  2º. Que muchos datos ausentes se deban a no tener que responder una determinada pregunta del cuestionario
+  
+  Al ser una gran cantidad de variables de tipo categórico, estas podían aparecer en forma de texto (factor) o en forma de número (integer). Ambos enfoques tienen sus ventajas e inconvenientes. Si tenemos las variables en formato de texto como factor podemos saber de manera más sencilla que significa cada dato, lo que permite clasificar los datos con mayor facilidad, encontrar relaciones etc. . También nos permite añadir categorías en formato texto alla donde hay NA's como categorías adicionales a las existentes y poder operar con un dataset sin valores ausentes. La principal desventaja es que no se puede modelizar con variables tipo texto, necesitan ser transformadas a numérica para ello. La ventaja de utilizar variables de tipo numérico es la que se acaba de presentar, el poder modelizar. La principal desventaja es el hecho de que en algunas ocasiones y como se explicará posteriormente no se pueden imputar valores a los NA, por muy sofisticada que sea la técnica de imputación simplemente porque no procede como es en este caso.
+  
+  Por tanto se ha decidido utilizar dos datasets, uno donde transformamos las variables categóricas a texto (exceptuando las que no procede pasar a texto, por ej: Número de aseos), y otro dataset donde mantenemos las variables en un formato numérico(exceptuando algunas donde sería muy complicado de operar y es preferible operar con texto, por ej: Nombre de países). 
+  
+  - hogar y persona son datasets donde transformamos las variables a tipo texto
+  - hogar_2 y persona_2 donde mantenemos el formato numérico.
+  
+  Para este proyecto trabajaremos principalmente sobre el dataset con variables de tipo texto pero se crea el de formato numérico como conjunto de datos que se podría usar para modelizar.
+  
+  Por tanto vamos a transformar las variables deseadas a formato texto.
+  
+### Transformación de variables
+
+  Para transformar las variables de tipo, utlizamos los diccionarios adjuntos al dataset donde se explica como se llama cada variable, que significa y como está codificada.
+  
+  Cada hoja del diccionario de excel contiene información sobre las variables:
 
 ```{r variables de hogar a caracter, include=FALSE}
+
+  # Cargamos el diccionario del dataset de hogar/hogar_2
+
 dic <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
+
+  # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
 
 tab1 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
 
-# vamos a arreglar este data.frame para que quede más claro lo que contiene
+  # Vamos a arreglar este data.frame para que quede más claro lo que contiene
 
 names(tab1) <- c("Cod", "Desc", "Var")
 ind <- which(tab1$Cod == "Código")
@@ -87,9 +179,11 @@ tab1 <- tab1[I, ]
 J <- (!is.na(tab1$Desc))
 tab1 <- tab1[J, ]
 
+  # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
+
 tab2 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
 
-# vamos a arreglar este data.frame para que quede más claro lo que contiene
+  # Repetimos el proceso para la segunda tabla
 
 names(tab2) <- c("Cod", "Desc", "Var")
 ind <- which(tab2$Cod == "Código")
@@ -107,7 +201,13 @@ I <- (!is.na(tab2$Cod != "Código") & tab2$Cod != "Código")
 tab2 <- tab2[I, ]
 
 J <- (!is.na(tab2$Desc))
+
+ # tab2 es la tabla de variables de tipo texto que vamos a unir a la tab1 para modificar la variables de hogar
+
 tab2 <- tab2[J, ]
+
+ # tab2_2 es la tabla que utilizamos para el df de hogar_2, aqui solo queremos convertir a texto la variable "TIPOHO" y por eso la especificamos
+
 tab2_2 <- tab2[tab2$Var %in% c("TIPOHO"),]
 
 tab <- full_join(tab1, tab2)
@@ -116,28 +216,32 @@ tab_2 <- full_join(tab1, tab2_2)
 tab$Cod <- as.numeric(as.character(tab$Cod))
 tab_2$Cod <- as.numeric(as.character(tab_2$Cod))
 
+ # Este bucle for nos modifica el data frame hogar para convertir las variables a texto de tab
+
 for (i in names(hogar)){
-  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
   pos <- which(tab$Var == i)
-  #el if es porque hay variables que no están en la tabla
+  # El if es porque hay variables que no están en la tabla
   if (length(pos)>0){
-    #ahora tenemos que sustituir el código por lo que toca
+    # Ahora tenemos que sustituir el código por lo que toca
     for (j in seq(1, length(pos))){
-      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
       cod <- which(hogar[,i] == tab$Cod[pos[j]])
       hogar[cod, i] <- tab$Desc[pos[j]]
     }
   }
 }
 
+  # Este bucle for nos modifica el data frame hogar para convertir las variables a texto de tab_2
+
 for (i in names(hogar_2)){
-  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
   pos <- which(tab_2$Var == i)
-  #el if es porque hay variables que no están en la tabla
+  # El if es porque hay variables que no están en la tabla
   if (length(pos)>0){
-    #ahora tenemos que sustituir el código por lo que toca
+    # Ahora tenemos que sustituir el código por lo que toca
     for (j in seq(1, length(pos))){
-      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
       cod <- which(hogar_2[,i] == tab_2$Cod[pos[j]])
       hogar_2[cod, i] <- tab_2$Desc[pos[j]]
     }
@@ -146,12 +250,19 @@ for (i in names(hogar_2)){
 
 ```
 
+  Repetimos este proceso para el conjunto de datos de personas/personas_2
+
 ```{r df personas, include=FALSE}
+
+  # Cargamos el diccionario del dataset de hogar/hogar_2
+
 dic_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
+
+   # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información 
 
 tab1_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
 
-# vamos a arreglar este data.frame para que quede más claro lo que contiene
+  # El proceso que se sigue es identico al realizado para el df de hogar
 
 names(tab1_personas) <- c("Cod", "Desc", "Var")
 ind <- which(tab1_personas$Cod == "Código")
@@ -171,9 +282,11 @@ tab1_personas <- tab1_personas[I, ]
 J <- (!is.na(tab1_personas$Desc))
 tab1_personas <- tab1_personas[J, ]
 
+  # Cargamos la segunda tabla
+
 tab2_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
 
-# vamos a arreglar este data.frame para que quede más claro lo que contiene
+  # Repetimos el proceso para la segunda tabla
 
 names(tab2_personas) <- c("Cod", "Desc", "Var")
 ind <- which(tab2_personas$Cod == "Código")
@@ -193,7 +306,9 @@ tab2_personas <- tab2_personas[I, ]
 J <- (!is.na(tab2_personas$Desc))
 tab2_personas <- tab2_personas[J, ]
 
-#Hay variables que como "NACIM *** (2 veces más)", no detectan correctamente las variables, he tenido que hacer este sistema para arreglarlo
+  # Hay variables que como "NACIM *** (2 veces más)", no detectan correctamente las variables, hemos tenido que hacer este sistema para arreglarlo
+
+  # Básicamente creamos otro df donde creamos todas las variables que es necesario modificar obteniendo los valores que nos interesan
 
 tab2_personas[tab2_personas == "NACIM *** (2 veces más)"] <- "NACIM"
 
@@ -204,6 +319,8 @@ tab2_personas_2_3$Var[which(tab2_personas_2_3[,"Desc"] == "España")] <-  variab
 
 ind <- which(tab2_personas_2_3[,"Desc"] == "España")
 
+  # Para poner correctamente el nombre de las variables en la columna Var
+
 for (i in (1:length(ind))){
   if (i + 1 <= length(ind)){
   tab2_personas_2_3$Var[ind[i]:(ind[i+1] - 1)] <- variables_NACIM[i]
@@ -212,6 +329,8 @@ for (i in (1:length(ind))){
   tab2_personas_2_3$Var[ind[i]:nrow(tab2_personas_2_3)] <- variables_NACIM[i]  
   }
 }
+
+  # Para la variable "P01 *** (18 veces más)" sucede lo mismo y el proceso que se sigue es equivalente al código inmediatamente arriba
 
 tab2_personas[tab2_personas == "P01 *** (18 veces más)"] <- "P01"
 
@@ -230,13 +349,17 @@ for (i in (1:length(ind))){
   tab2_personas_2$Var[ind[i]:nrow(tab2_personas_2)] <- vector_p[i]  
   }
 }
+  
+  # Unimos los df creados a posteriori para incluir las variables que por falla de la estructura de los diccionarios no se transformaba correctamente
 
 tab2_personas_ok <- full_join(tab2_personas,tab2_personas_2)
 tab2_personas_ok_ok <- full_join(tab2_personas_ok,tab2_personas_2_3)
 
+  # Cargamos la tercera tabla
+
 tab3_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas3", col_names = FALSE, skip = 4)
 
-# vamos a arreglar este data.frame para que quede más claro lo que contiene
+  # Repetimos el proceso para la segunda tabla
 
 names(tab3_personas) <- c("Cod", "Desc", "Var")
 ind <- which(tab3_personas$Cod == "Código")
@@ -256,9 +379,11 @@ tab3_personas <- tab3_personas[I, ]
 J <- (!is.na(tab3_personas$Desc))
 tab3_personas <- tab3_personas[J, ]
 
-variables <- c("PNACIMT","PNACT","PNACNACIMT","PNACIMPADRET","PNACIMMADRET")
+  # Para la variable "PNACIMT *** (4 veces más)" sucede lo mismo y el proceso que se sigue es equivalente al código de modificación de "P01 *** (18 veces más)"
 
 tab3_personas[tab3_personas == "PNACIMT *** (4 veces más)"] <- "PNACIMT"
+
+variables <- c("PNACIMT","PNACT","PNACNACIMT","PNACIMPADRET","PNACIMMADRET")
 which(tab3_personas[,"Desc"] == "Austria")
 tab3_personas <- rbind(tab3_personas, tab3_personas, tab3_personas, tab3_personas, tab3_personas)
 tab3_personas$Var[which(tab3_personas[,"Desc"] == "Austria")] <-  variables
@@ -273,53 +398,106 @@ for (i in (1:length(ind))){
   }
 }
 
+  # Unimos las tablas modificadas, además de las tablas de las hojas 1, 2 y 3
+
 tab_personas <- full_join(tab1_personas, tab2_personas_ok_ok)
 tab_personas_ok <- full_join(tab_personas, tab3_personas)
+
+ # df utilizado para modificar el conjunto de datos de persona
+
 tab_personas_ok$Cod <- as.numeric(as.character(tab_personas_ok$Cod))
+
+ # df utilizado para modificar el conjunto de datos de persona_2 siendo c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET") las variables que queremos convertir a texto únicamente.
 
 tab_personas_ok_2 <- tab_personas_ok[tab_personas_ok$Var %in% c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET"),]
 tab_personas_ok_2$Cod <- as.numeric(as.character(tab_personas_ok_2$Cod))
 
-for (i in names(persona_2)){
-  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
-  pos <- which(tab_personas_ok_2$Var == i)
-  #el if es porque hay variables que no están en la tabla
-  if (length(pos)>0){
-    #ahora tenemos que sustituir el código por lo que toca
-    for (j in seq(1, length(pos))){
-      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
-      cod <- which(persona_2[,i] == tab_personas_ok_2$Cod[pos[j]])
-      persona_2[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
-    }
-  }
-}
+# Este bucle for nos modifica el data frame persona para convertir las variables a texto de tab_personas_ok
 
 for (i in names(persona)){
-  #el vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
   pos <- which(tab_personas_ok$Var == i)
-  #el if es porque hay variables que no están en la tabla
+  # El if es porque hay variables que no están en la tabla
   if (length(pos)>0){
-    #ahora tenemos que sustituir el código por lo que toca
+    # Ahora tenemos que sustituir el código por lo que toca
     for (j in seq(1, length(pos))){
-      #el vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
       cod <- which(persona[,i] == tab_personas_ok$Cod[pos[j]])
       persona[cod, i] <- tab_personas_ok$Desc[pos[j]]
     }
   }
 }
+
+  # Este bucle for nos modifica el data frame persona_2 para convertir las variables a texto de tab_personas_ok_2
+
+for (i in names(persona_2)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok_2$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona_2[,i] == tab_personas_ok_2$Cod[pos[j]])
+      persona_2[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
+    }
+  }
+}
 ```
 
+  De este modo hemos trasfromado las variables que queriamos tener en texto y hemos mantenido aquellas variables númericas de interés para poder tener un df utilizable para modelizar y otro para analizar las variables cualitativas.
+
 ```{r}
+head(persona)
+head(hogar)
+head(persona_2)
+head(hogar_2)
+```
+
+  Hecho esto unimos los subconjuntos de datos para tener el conjunto que vamos a utilizar para el análisis.
+  
+  - df: Donde almacenamos la mayor parte de las variables en tipo texto
+  
+  - df_num: Donde almacenamos la mayor parte de las variables en tipo numérico
+
+```{r warning=FALSE}
 df <- full_join(hogar,persona)
 df_num <- full_join(hogar_2,persona_2)
 
-rm(list=setdiff(ls(), c("df","df_num")))
+ # Con rm podemos tener nuestro environment de RStudio más limpio y claro ya que en principio no vamos a necesitar ninguna variable de las de arriba
+
+rm(list=setdiff(ls(), c("df","df_num","hogar","persona","hogar_2","persona_2")))
 ```
+
+  Obervamos la estructura del df y observamos una variable (PERIODO) que presenta un formato de tipo integer pero que realmente representa el año y el trimestre de toma de los datos por lo que se ajusta más a un tipo fecha realmente.
+
+```{r}
+str(df)
+
+  # Sustituimos 20191,20192... por 201901,20192... ya que la función yq() de lubridate no entiende el dato como fecha de otra forma
+
+df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
+df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
+
+df <- df |> 
+  mutate(PERIODO = yq(PERIODO))
+
+df_num <- df_num |> 
+  mutate(PERIODO = yq(PERIODO))
+
+  # Si se carga este chunk multiples veces dará error, en ese caso vuelve a cargar el chunk inmediatamente arriba para volver a cargar los df en sus estado anteriores.
+```
+  
+  Las variables de tipo character las podemos trasnformar a factor, sin embargo nos vamos a esperar a haber realizado primero el análisis de NA's ya que vamos a crear nuevas categorías de datos al imputar muchos de esos valores NA.
 
 
 ### Análisis de NA's
 
-El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos o a que no procede establecer ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a que muchos de los valores no tendrián ningun sentido si hubiesen sido rellenados con cualquiera de las categorías que el INE presenta. Por tanto voy a ir analizando el porque de los NA en cada caso.
+  El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos o a que no procede establecer ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a que en la encuesta que proporciona el INE a los miembros del hogar, algunas preguntas se contestan o no en función de como contestaron pregunatas anteriores. Por tanto, si analizamos el porque de cada caso podemos obtener información adicional.
+  
+  Como veremos a continuación no tiene sentido asignar un valor numérico a un valor NA, por tanto para nuestro dataset numérico no tiene sentido imputar valores a los NA. Si se quisiera modelizar o utilizar cualquier técnica que requiera cálculos, es imprescindible tener el dataset adaptado a cada modelo que se quiera realizar aplicando distintos filtros que hace que desaparezcan los NA. Por ej. filtrar por mayores de 16 años. Esto se analizará con más detalle a lo largo de la sección.
+  
+  Aqui vemos el porcentaje de NA's por variable:
 
 ```{r}
 NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
@@ -327,7 +505,9 @@ NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
 NA_analisis 
 ```
 
-Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16% etc, la cuestión es que una gran cantidad de variables presentan NA's, sin embargo hay una serie de patrones que pueden ayudar a identificar las causas.
+  Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16% etc. .Un aspecto interesante que podemos observar, es que hay variables que tienen exactamente el mismo porcentaje de NA's, esto podría indicarnos relaciones entre las variables.
+
+  Las primeras variables que vamos a analizar son P01:P19. Estas indican las relaciones de parentesco entre los miembros del hogar.
 
 ```{r}
 vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
@@ -336,9 +516,12 @@ NA_analisis_P <- sapply(df[,vector_p], function(x) {mean(is.na(x)) * 100
 NA_analisis_P
 ```
 
-Las primeras variables que analizaré son P01:P19, estas indican las relaciones de parentesco entre los miembros del hogar, P01, permite recoger todas las relaciones con respecto al miembro encuestado y el resto de variables no reccogen más información que la relación entre el resto de miembros de la unidad familiar, información que ya se puede conocer con P01 aunque sea de forma implicita, por tanto no nos aportan más información y se podrían eliminar.Además podemos establecer como valor al miembro encuestrado para evitar un NA.
+ Vemos que casi todas ellas tienen porcentajes muy elevados de NA inclusive del 100%, esto es lógico pues es poco común que hayan familias de más de 4 miembros, además solamente con P01 ya podemos tener la información sobre las relaciones de parentesco de todos los miembros de la familia por lo que podemos eliminar P02:P19 sin perder información. 
 
 ```{r}
+
+  #Imputamos al miembro que realizó la encuesta el valor de "Miembro encuestado" ya que aparecía como NA
+
 df[ ,"P01"][which(df[,"NPV"] == 1)] <- "Miembro encuestado"
 df_num[ ,"P01"][which(df_num[,"NPV"] == 1)] <- "Miembro encuestado"
 
@@ -354,7 +537,9 @@ NA_analisis_P
 
 ```
 
-A continuación se estudian las variables SEXOPAR, NACPAR, ECPAR, HIJOSDEAMBOS, se van a estudiar juntas porque viendo el porcentaje de NA's coincide en los cuatro casos de un 50.236605%, esto también sucede para las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITNUCLEOFAM con un 44.979064%, ESTUDIOS y RELACT con un 14.990599% y NHIJO, NHIJOMENOR y NUCLEOFAM con un 16.580078%.
+  Si le imputamos al miembro que realizó la encuesta NPV == 1 el valor "Miembro encuestado", lo cual podemos hacer pues la relación consigo mismo y eliminamos el resto de variables vemos que realmente no tenemos valores ausentes. Esta tendencia de mediante una sola operación de imputación razonable desaparecen los valores ausentes es recurrente en el dataset.
+
+  A continuación se estudian las variables SEXOPAR, NACPAR, ECPAR, HIJOSDEAMBOS, se van a estudiar juntas porque viendo el porcentaje de NA's coincide en los cuatro casos de un 50.236605%, esto también sucede para las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITNUCLEOFAM con un 44.979064%, ESTUDIOS y RELACT con un 14.990599% y NHIJO, NHIJOMENOR y NUCLEOFAM con un 16.580078%.
 
 ```{r}
 df_EC_2 <- df %>% 
@@ -382,6 +567,9 @@ select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHI
 df_EC <- df %>% 
   select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
 
+  sapply(df_EC, function(x) {mean(is.na(x)) 
+})
+
   
    df <- df %>%
   mutate(
@@ -396,6 +584,8 @@ df_EC <- df %>%
     NHIJO = ifelse(NHIJO_NUCLEO == "Sin hijos/Sin pareja", "Sin hijos/Sin pareja",NHIJO),
     NHIJO = ifelse(is.na(NHIJO), NHIJO_NUCLEO,NHIJO)
     )
+   
+
   
 ```
 
@@ -405,6 +595,9 @@ Cuando son solteros, divorciados, viudos o separados pueden vivir o no con una p
 
 
 Al haber eliminado anteriormente las filas de personas casadas sin datos en las categorias anteriores, tampoco aparecen datos ausentes para los casados, para los no casados si hay NA lo cual es lógico pues no procede si una persona no casado no tiene hijos o no pertenece a ninguna de las categorias de SITUNUCLEOFAM, por tanto hacemos como anteriormente.
+
+
+
 
 ```{r}
 df_EDAD <- df %>% 
