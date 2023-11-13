@@ -641,8 +641,7 @@ df_EC <- df %>%
 select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHIJOMENOR)  
 
 
-  sapply(df_EC_2, function(x) {mean(is.na(x)) 
-})
+  sapply(df_EC, function(x) {mean(is.na(x))})
   
     df <- df %>%
   mutate(
@@ -662,8 +661,7 @@ select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHI
 df_EC_2 <- df %>% 
   select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
 
-  sapply(df_EC, function(x) {mean(is.na(x)) 
-})
+  sapply(df_EC_2, function(x) {mean(is.na(x))})
 
   
    df <- df %>%
@@ -690,11 +688,10 @@ df_EC_2 <- df %>%
 
 ```{r}
 df_EDAD <- df %>% 
-select(ESTUDIOS,RELACT,EDAD) %>% 
-  filter(EDAD >= 16)
+  select(ESTUDIOS,RELACT,EDAD) %>% 
+  dplyr::filter(EDAD >= 16)
 
-  sapply(df_EDAD, function(x) {mean(is.na(x)) 
-})
+  sapply(df_EDAD, function(x) {mean(is.na(x))})
   
   df <- df %>%
   mutate(
@@ -704,7 +701,7 @@ select(ESTUDIOS,RELACT,EDAD) %>%
   
 df_OCUPADOS <- df %>% 
   select(OCUPA,RELACT) %>% 
-  filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
+  dplyr::filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
 
   sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
 })
@@ -736,7 +733,7 @@ df_extranjeros <- df %>%
 
 df_NACIONALIDAD <- df %>% 
 select(NACNACIMESP,NAC) %>% 
-  filter(!(NAC == "No tiene nacionalidad española"))
+  dplyr::filter(!(NAC == "No tiene nacionalidad española"))
 
   sapply(df_NACIONALIDAD, function(x) {mean(is.na(x)) 
 })
@@ -753,7 +750,7 @@ select(NACNACIMESP,NAC) %>%
 ```{r}
 df_CONSTRUCCION <- df %>% 
   select(ANOANEDI,ANEDI) %>% 
-  filter(ANEDI == "Después del año 2000")
+  dplyr::filter(ANEDI == "Después del año 2000")
 
   sapply(df_CONSTRUCCION, function(x) {mean(is.na(x)) 
 })
@@ -768,25 +765,24 @@ df_num <- df_num %>%
 
 ```
 
-  Una vez hecho todo el proceso de busqueda de datos perdidos e imputación, podemos ver como para nuestro conjunto de datos ya no tenemos datos ausentes, de hecho en ningún momento tuvimos (salvo en algún caso muy puntual), sin embargo era necesario añadir nuevas categorías dentro de las variables que capturen esa información implicita.
+  Una vez hecho todo el proceso de busqueda de datos perdidos e imputación, podemos ver como para nuestro conjunto de datos ya no tenemos datos ausentes, de hecho en ningún momento tuvimos (salvo en algún caso muy puntual). Sin embargo, era necesario añadir nuevas categorías dentro de las variables que capturasen esa información implícita.
   
-  El motivo por el que no se han podido imputar al df numérico todos esos NA es porque ningún tipo de imputación numérica hubiera sido realmente cierta y hubiera sesgado los verdaderos valores del conjunto, un ejemplo ilustrativo es la edad de llegada a España, para un ciudadano nacido en España podríamos imputar el valor 0, sin embargo esto se interpretaría como: "Ha llegado hace 0 años", lo cual sesgaría la distribución de años hacía 0, pues la mayoría de personas que contestó la encuesta eran de nacionalidad española.
+  El motivo por el que no se han podido imputar al df numérico todos esos NA's es porque ningún tipo de imputación numérica hubiera sido realmente cierta, y hubiera sesgado los verdaderos valores del conjunto. Un ejemplo ilustrativo es la edad de llegada a España, para un ciudadano nacido en España podríamos imputar el valor 0, sin embargo, esto se interpretaría como: "Ha llegado hace 0 años", lo cual sesgaría la distribución de años hacía 0, pues la mayoría de personas que contestó la encuesta eran de nacionalidad española.
   
-  Este caso es el mismo para todas las variables con valores ausentes, por lo tanto, para no hacer un posterior análisis erroneo, es importante realizar un filtrado correcto de los valores ausentes antes de realizar cálculos numéricos, primero porque si no R no será capaz de realizar cálculos con datos ausentes, pero segundo y más importante, porque al ser NA donde no se pueden imputar datos, se nos esta indicando implicitamente que no debemos de utilizar más datos de los que hay, ya que si no estaríamos contestando preguntas con información de sujetos que no tienen nada que ver con la misma.
+  Este caso es el mismo para todas las variables con valores ausentes, por lo tanto, para no hacer un posterior análisis erroneo, es importante realizar un filtrado correcto de los valores ausentes antes de realizar cálculos numéricos. Primero, porque si no R no será capaz de realizar cálculos con datos ausentes, pero segundo, y más importante, porque al ser NA's donde no se pueden imputar datos, se nos esta indicando implícitamente que no debemos utilizar más datos de los que hay, ya que si no estaríamos contestando preguntas con información de sujetos que no tienen nada que ver con la misma.
 
 ```{r}
 NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100})
 NA_analisis
-
 ```
 
 Con esto hemos eliminado todos los valores ausentes del conjunto de datos, faltaría codificar todos los cambios realizados de forma que no afecte luego en fases posteriores del analisis.
 
 ### Cambios de tipo de variables
 
-La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque ahora aparece como una variable de tipo numérico. Por otro lado hemos estado trabajando con una gran cantidad de variables de tipo factor que actualmente aparecen como de tipo caracter y deben ser cambiadas, en la fase de codificación se pasarán a númerico para poder usados en análisis de correlación, modelos de regresión etc.
+La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque ahora aparece como una variable de tipo numérico. Por otro lado hemos estado trabajando con una gran cantidad de variables de tipo factor, que actualmente aparecen como de tipo caracter y deben ser cambiadas. En la fase de codificación se pasarán a numeérico para poder usarse en análisis de correlación, modelos de regresión etc.
 
-```{r}
+```{r, warning = F}
 rm(list=setdiff(ls(), c("df","df_num")))
 df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
 df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
@@ -803,15 +799,15 @@ df_num <- df_num |>
 str(df)
 ```
 
-Analizando los levels de las variables factor nos encontramos con países con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
+Analizando los levels de las variables factor, nos encontramos con países con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
 
 ```{r}
 df <- df %>% 
-  filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  dplyr::filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
   droplevels()
 
 df_num <- df_num %>% 
-  filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  dplyr::filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
   droplevels()
 str(df)
 ```
@@ -843,17 +839,17 @@ df <- df %>%
 
 ### Recodificación de variables
 
-En un inicio nuestro dataset presentaba un tipo de codificación ya establecido, el problema era la dificultad de interpretar el dataset y sus posibles relaciones entonces se decidió descodificar primero las variables para poder entender que significaba cada cosa de forma sencilla. Tras haber realizado una parte del proceso de limpieza del dataset, es necesario recodificarlo, esta vez acorde al tipo de codificación que queramos a la hora de poder hacer un buen análisis de detección de outliers y busqueda de correlaciones entre variables.
+En un inicio, nuestro dataset presentaba un tipo de codificación ya establecido. El problema era la dificultad de interpretar el dataset y sus posibles relaciones, entonces se decidió descodificar primero las variables para poder entender qué significaba cada una de forma sencilla. Tras haber realizado una parte del proceso de limpieza del dataset, es necesario recodificarlo, esta vez acorde al tipo de codificación que queramos a la hora de poder hacer un buen análisis de detección de outliers y búsqueda de correlaciones entre variables.
 
-Las variables a codificar son aquellas de tipo categórico. Las variables categóricas se dividen en dos grupos: ordinales y cardinales. En las variables categóricas ordinales, las variables se pueden codificar acorde a un orden númerico ya que existe una jerarquia. a > b > c, en las variables cardinales por el contrario, no se aprecia un orden entre las variables: Andalucia !> Aragón. Esto es importante porque para cada caso las técnicas de codificación son distintas.
+Las variables a codificar son aquellas de tipo categórico. Las variables categóricas se dividen en dos grupos: ordinales y cardinales. En las variables categóricas ordinales, se pueden codificar acorde a un orden númerico, ya que existe una jerarquia. a > b > c. En las variables cardinales, por el contrario, no se aprecia un orden entre las variables: Andalucia !> Aragón. Esto es importante porque para cada caso las técnicas de codificación son distintas.
 
-Como variables ordinales en este caso podemos considerar a TAMAÑO, ESTUDIOS, TIPOVIV, FEDI, mientras que el resto son cardinales.
+Como variables ordinales en este caso podemos considerar a **TAMAÑO**, **ESTUDIOS**, **TIPOVIV**, **FEDI**, mientras que el resto son cardinales.
 
 ```{r}
 columnas_dummy <- c("REGVI","NACHO","SEXO","EC","NACIM","COCINA","NAC","NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR","ECPAR","HIJOSDEAMBOS")
 
 df_num_fctr <- df_num %>% 
-  select(columnas_dummy) %>% 
+  select(all_of(columnas_dummy)) %>% 
     mutate_all(factor)
 
 
@@ -891,17 +887,18 @@ _ANÁLISIS UNIVARIANTE_
 Como la mayoría de las variables con las que estamos trabajando son categóricas, el estadístico que podemos calcular de ellas es la *MODA*. De variables numéricas tenemos _DENSIDADVI_ y _METROSVI_. Calcularemos algunos de los estadísticos más comunes de estas variables ya que nos podrán ayudar para la comprensión de los datos:
 
 ```{r}
-cat("La media de metros cuadrados por vivienda es:", mean(df$METROSVI))
-cat("La mediana de metros cuadrados por vivienda es:", median(df$METROSVI))
-cat("La desviación típica de los metros cuadrados por vivienda es:", sd(df$METROSVI))
+cat("La media de metros cuadrados por vivienda es:", mean(df$METROSVI), "\n")
+cat("La mediana de metros cuadrados por vivienda es:", median(df$METROSVI), "\n")
+cat("La desviación típica de los metros cuadrados por vivienda es:", sd(df$METROSVI), "\n")
 ```
-Que la mediana sea menor que la media quiere decir que hay más viviendas con menos metros cuadrados, y las casas con más metros cuadrados, que aumentan el valor de la media, su diferencia de metros debe ser significativa. 
 
-En este caso, una desviación típica de 62.85405 sugiere que los tamaños de las viviendas tienden a alejarse de la media en una cantidad considerable, lo que podría deberse a la presencia de viviendas más grandes y más pequeñas en el conjunto de datos.
+Que la mediana sea menor que la media quiere decir que hay más viviendas con menos metros cuadrados, y que las casas con más metros cuadrados presentan una diferencia significativa con el resto.
 
-En el análisis bivariante estudiaremos como las variables _DENSIDADVI_ y _METROSVI_ están correlacionadas. Esto se debe a que la variable _DENSIDAVI_ la hemos obtenido del cociente entre _METROSVI_ y _PERS_HOGAR_.
+En este caso, una desviación típica de 62.85405 sugiere que los tamaños de las viviendas tienden a alejarse de la media en una cantidad considerable, lo que podría deberse a la presencia de viviendas muy grandes y muy pequeñas en el conjunto de datos.
 
-Para algunas de las variables categóricas lo que haremos será un diagrama de barras para ver mejor como se distribuyen las diferentes categorías:
+En el análisis bivariante, estudiaremos cómo las variables _DENSIDADVI_ y _METROSVI_ están correlacionadas. Esto se debe a que la variable _DENSIDAVI_ la hemos obtenido del cociente entre _METROSVI_ y _PERS_HOGAR_.
+
+Para algunas de las variables categóricas lo que haremos será un diagrama de barras para ver mejor cómo se distribuyen las diferentes categorías:
 
 Por ejemplo, analizaremos la variable _REGVI_ ya que los resultados que observemos nos pueden ser de utilidad en el análisis bivariante:
 
