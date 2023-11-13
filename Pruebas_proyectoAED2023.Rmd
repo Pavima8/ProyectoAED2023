@@ -877,16 +877,29 @@ df_saltolinea <- df
 
 df_saltolinea <- df_saltolinea %>%
   mutate(
-    ESTUDIOS = gsub("Llegó al último curso de ESO, EGB o Bachiller Elemental o tiene el Certificado de Escolaridad o de Estudios Primarios", "Llegó al último curso de ESO o similar", ESTUDIOS),
-    ESTUDIOS = gsub("Diplomatura universitaria, Arquitectura Técnica, Ingeniería Técnica o equivalente", "Diplomatura universitaria", ESTUDIOS),
-    ESTUDIOS = gsub("Fue a la escuela 5 años o más pero no llegó al último curso de la ESO, EGB o Bachiller Elemental", "Fue a la escuela 5 años o más", ESTUDIOS),
-    ESTUDIOS = gsub("FP grado medio, FP I, Oficialía Industrial o equivalente, Grado Medio de Música y Danza, Certificados de Escuelas Oficiales de Idiomas", "FP grado medio", ESTUDIOS),
-    ESTUDIOS = gsub("Bachiller \\(LOE, LOGSE\\), BUP, Bachiller Superior, COU, PREU", "Bachiller o equivalente", ESTUDIOS),
-    ESTUDIOS = gsub("Master oficial universitario \\(a partir de 2006\\), Especialidades Médicas o análogos", "Master oficial universitario", ESTUDIOS),
-    ESTUDIOS = gsub("FP grado superior, FP II, Maestría industrial o equivalente", "FP grado superior o equivalente", ESTUDIOS),
-    ESTUDIOS = gsub("Sabe leer y escribir pero fue menos de 5 años a la escuela", "Sabe leer y escribir", ESTUDIOS),
-    ESTUDIOS = gsub("Licenciatura, Arquitectura, Ingeniería o equivalente", "Licenciatura o equivalente", ESTUDIOS)
-  )
+    ESTUDIOS = gsub("Llegó al último curso de ESO, EGB o Bachiller Elemental o tiene el Certificado de Escolaridad o de Estudios Primarios", "Acaba ESO", ESTUDIOS),
+    ESTUDIOS = gsub("Diplomatura universitaria, Arquitectura Técnica, Ingeniería Técnica o equivalente", "Diplom univ", ESTUDIOS),
+    ESTUDIOS = gsub("Fue a la escuela 5 años o más pero no llegó al último curso de la ESO, EGB o Bachiller Elemental", "Escuela 5 años", ESTUDIOS),
+    ESTUDIOS = gsub("FP grado medio, FP I, Oficialía Industrial o equivalente, Grado Medio de Música y Danza, Certificados de Escuelas Oficiales de Idiomas", "FP grado med", ESTUDIOS),
+    ESTUDIOS = gsub("Bachiller \\(LOE, LOGSE\\), BUP, Bachiller Superior, COU, PREU", "Bachiller", ESTUDIOS),
+    ESTUDIOS = gsub("Master oficial universitario \\(a partir de 2006\\), Especialidades Médicas o análogos", "Master univ", ESTUDIOS),
+    ESTUDIOS = gsub("FP grado superior, FP II, Maestría industrial o equivalente", "FP grado sup", ESTUDIOS),
+    ESTUDIOS = gsub("Sabe leer y escribir pero fue menos de 5 años a la escuela", "Si leer&escribir", ESTUDIOS),
+    ESTUDIOS = gsub("Licenciatura, Arquitectura, Ingeniería o equivalente", "Licenciatura", ESTUDIOS),
+    ESTUDIOS = gsub("Grado Universitario o equivalente" , "Grado Univ", ESTUDIOS ),
+    ESTUDIOS = gsub("No sabe leer o escribir" , "No leer/escribir", ESTUDIOS )
+  )%>%mutate(
+    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato indefinido", "Trabajador \ncontrato indef", OCUPA),
+    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato eventual o temporal", "Trabajador \ncontrato  temp", OCUPA),
+    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que no emplea a otras personas", "Empresario \nno emplea", OCUPA),
+    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que emplea a otras personas", "Empresario \nemplea", OCUPA)
+    
+  )%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia \npagada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas \ngratis", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia con \nhipotecas", REGVI))%>%mutate(NHIJO = gsub("Sin hijos/Sin pareja", "Sin hijos/\nSin pareja", NHIJO))
+
+lev<-as.vector(unique(df$ESTUDIOS))
+lev <- lev[c(7, 10, 5, 1, 8, 6, 3, 11, 4, 9, 12, 13, 2)]
+
+df$ESTUDIOS <- factor(df$ESTUDIOS, levels = lev)
 
 
 ggplot(df_saltolinea)+geom_mosaic(aes(x=product(ESTUDIOS, NACIM), fill=ESTUDIOS))+labs(title = "Mosaico de estudios según si nacieron en España",
@@ -896,61 +909,34 @@ ggplot(df_saltolinea)+geom_mosaic(aes(x=product(ESTUDIOS, NACIM), fill=ESTUDIOS)
 ```
 Del mosaico podemos deducir que de las personas que se recopilaron los datos la mayoria nacieron en España. Sobre las personas nacidas en España, el grupo predominante son los que llegaron al último curso de ESO o similar seguido de "No procede". Recordemos que el grupo "No procede" está formado por los menores de 16 años.  Comparandolo con las personas nacidas fuera de España, este sigue siendo el grupo predominante, pero le sigue de cerca el de las personas que tienen bachiller o equivalentes, cosa que no sucede en el de las personas nacidas en España. El resto de categorias si que estan en proporciones similares tanto para nacido en España como para los que no. Destacar que los que aparecen en menor número son los que no saben leer o escribir, lo que poseen Máster oficial universitario, y los que tienen doctorado. 
 
-*Para no abusar de los diagramas de barras se ha representado con un mosaico, aunque parece que queda más claro con barras como se observa en la siguiente gráfica:*
+*Para no abusar de los diagramas de barras se ha representado con un mosaico, aunque parece que queda más claro con barras*
+
+Hemos recogido en diferentes diagramas de barras cómo se distribuyen las variables respecto a lugar de nacimiento:
 
 ```{r}
-library(ggplot2)
-
-ggplot(df_saltolinea, aes(x=ESTUDIOS))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama de barras estudios según si nacieron o no en España",
-       x = "Estudios",
-       y = "Número de personas", fill = "Donde nacieron")
-rm(df_saltolinea)
+plot_grid(
+  ggplot(df_saltolinea, aes(x=ESTUDIOS))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama estudios",
+       x = NULL,
+       y = NULL, fill = "Donde nacieron"),
+  ggplot(df_saltolinea, aes(x=OCUPA))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama ocupación",
+       x = NULL,
+       y = NULL, fill = "Donde nacieron"),
+  
+  ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama régimen de vivienda",
+       x = NULL,
+       y = NULL, fill = "Donde nacieron"),
+  
+  ggplot(df_saltolinea, aes(x=NHIJO))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama número de hijos",
+       x = NULL,
+       y = NULL, fill = "Donde nacieron"),
+  ncol = 2, nrow = 2
+)
 ```
 
-Para el caso de analizar el lugar de nacimiento con respecto a la ocupación sucede lo mismo,  con un mosaico no queda claro como se distribuyen las diferentes variables por lo que es mejor usar un diagrama de barras:
 
-```{r}
-library(ggplot2)
-library(ggmosaic)
-library(dplyr)
-
-df_saltolinea <- df
-
-df_saltolinea <- df_saltolinea %>%
-  mutate(
-    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato indefinido", "Asalariado o trabajador \npor cuenta ajena con \ncontrato indefinido", OCUPA),
-    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato eventual o temporal", "Asalariado o trabajador \npor cuenta ajena con \ncontrato eventual o temporal", OCUPA),
-    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que no emplea a otras personas", "Empresario, profesional \no trabajador por cuenta \npropia que no emplea \na otras personas", OCUPA),
-    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que emplea a otras personas", "Empresario, profesional \no trabajador por cuenta \npropia que emplea \na otras personas", OCUPA)
-    
-  )
-
-ggplot(df_saltolinea, aes(x=OCUPA))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama de barras ocupación según si nacieron o no en España",
-       x = "Ocupación",
-       y = "Número de personas", fill = "Donde nacieron")
-rm(df_saltolinea)
-```
 Sobre las personas nacidas en España notamos que la mayoría de ellas no trabajan, casi 125.000,  siendo más del doble con respecto a la siguiente categoría más numerosa. Le siguen los asalariados o trabajadores con contrato indefinido con casi 50.000 personas y el resto de categorías tienen cifras bastante inferiores, con menos de 25.000 personas. Para los nacidos fuera de España al tratarse de menos muestras en ninguna de las categorías se superan las 25.000 personas. Sin embargo si destaca que el mayor número se concentra en las que no trabajan,  seguido, con cifras similares, los asalariados o trabajadores en ambas categorías. Y con apenas representación quedan los empresarios.
 
-```{r}
-library(ggplot2)
-library(ggmosaic)
-library(dplyr)
-
-df_saltolinea <- df
-
-df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis \no bajo precio", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia por compra \ncon hipotecas", REGVI))
-
-ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama de barras régimen de vivienda según si nacieron o no en España",
-       x = "Régimen de vivienda",
-       y = "Número de personas", fill = "Donde nacieron")
-
-rm(df_saltolinea)
-
-```
 Y en último lugar analizaremos el régimen de vivienda. Comparando los nacidos en España con los nacidos en el extrangeros notamos una clara diferencia: el primer grupo mayoritáriamente tiene una propiedad comprada pagada totalmente (o heredada o donada), en cambio para el segundo son viviendas alquiladas. Para los nacidos fuera de España una propiedad comprada pagada totalmente (o heredada o donada) pasa a una tercera posición. En ambos casos las casas cedidas gratis o por bajo precio son a las que acceden un menor número de personas y las propiedades compradas con hipoteca ocupan el segundo lugar en sus respectivas categorías, aunque evidentemente, en muy diferente proporción.
-
-No analizaremos el lugar de nacimiento con respecto al número de hijos ya que ni con el diagrama de barras ni con el mosacico queda una gráfica clara la cual poder analizar.
 
 Ahora pasaremos a calcular la tabla de contingencia de cada variable respecto a la de lugar de nacimiento y posteriormente calcular la correlación con el test chi-cuadrado.
 
@@ -989,17 +975,6 @@ chisq.test(tabla_contingencia)
 tabla_contingencia <- table(df_corr$NACIM, df_corr$REGVI)
 chisq.test(tabla_contingencia)
 
-### Esta es la matriz de dispersion pero al ser categoricas queda de esta forma
-
-pairs(df_corr, pch = 19, # Pch symbol
-      col = 4,  # Color
-      main = "Matriz de dispersión respecto lugar de nacimiento",    # Title
-      gap = 0,           # Subplots distance
-      row1attop = FALSE, # Diagonal direction
-      labels = c("Lugar nacimiento", "Estudios", "Ocupación", "Número de hijos", "Régimen de vivienda"), # Labels
-      cex.labels = 0.8,  # Size of diagonal texts
-      font.labels = 1 # Font style of diagonal texts
-      )   
 
 rm(df_corr, tabla_contingencia, lev)
 ```
