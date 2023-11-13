@@ -516,7 +516,7 @@ NA_analisis_P <- sapply(df[,vector_p], function(x) {mean(is.na(x)) * 100
 NA_analisis_P
 ```
 
- Vemos que casi todas ellas tienen porcentajes muy elevados de NA inclusive del 100%, esto es lógico pues es poco común que hayan familias de más de 4 miembros, además solamente con P01 ya podemos tener la información sobre las relaciones de parentesco de todos los miembros de la familia por lo que podemos eliminar P02:P19 sin perder información. 
+  Vemos que casi todas ellas tienen porcentajes muy elevados de NA inclusive del 100%, esto es lógico pues es poco común que hayan familias de más de 4 miembros, además solamente con P01 ya podemos tener la información sobre las relaciones de parentesco de todos los miembros de la familia por lo que podemos eliminar P02:P19 sin perder información. 
 
 ```{r}
 
@@ -539,10 +539,14 @@ NA_analisis_P
 
   Si le imputamos al miembro que realizó la encuesta NPV == 1 el valor "Miembro encuestado", lo cual podemos hacer pues la relación consigo mismo y eliminamos el resto de variables vemos que realmente no tenemos valores ausentes. Esta tendencia de mediante una sola operación de imputación razonable desaparecen los valores ausentes es recurrente en el dataset.
 
-  A continuación se estudian las variables SEXOPAR, NACPAR, ECPAR, HIJOSDEAMBOS, se van a estudiar juntas porque viendo el porcentaje de NA's coincide en los cuatro casos de un 50.236605%, esto también sucede para las variables NHIJO_NUCLEO, NHIJOME_NUCLEO y SITNUCLEOFAM con un 44.979064%, ESTUDIOS y RELACT con un 14.990599% y NHIJO, NHIJOMENOR y NUCLEOFAM con un 16.580078%.
+  A continuación se estudian todas aquellas variables que tienen relación con el nucleo familiar, (EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,PAREJA,NUCLEOFAM, NHIJOMENOR,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO), todas ellas estan relacionadas ya que la información que contienen varía ligeramente, sin embargo, observamos que si los individuos que contestaron el cuestionario en el apartado de PAREJA establecieron que "No convive en pareja", hacia que se quedara sin contestar pues no se puede contestar algo sobre el EC de la pareja sin tenerla por poner un ejemplo.
+  
+  Para las variables NUCLEOFAM NHIJOPAR y NHIJO se han tenido que realizar imputaciones de datos pues en principio no hay ningún criterio conocido por el que esos datos no estuvieran presentes. Se le buscaron variables que contengan información muy similar o igual a la información que recoge la variable. Al tener el dataset una gran cantidad de variables con cambios marginales entre una y otra, podemos imputar datos de una variable a otra de forma relativamente razonable, además el número de datos perdidos en este caso es relativamente pequeño (no más de un 3% de NA reales de esas variables).
+  
+  La lista completa de relaciones se puede visualizar en el código.
 
 ```{r}
-df_EC_2 <- df %>% 
+df_EC <- df %>% 
 select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHIJOMENOR)  
 
 
@@ -564,7 +568,7 @@ select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHI
     NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge del mismo sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM)
   )
     
-df_EC <- df %>% 
+df_EC_2 <- df %>% 
   select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
 
   sapply(df_EC, function(x) {mean(is.na(x)) 
@@ -589,15 +593,9 @@ df_EC <- df %>%
   
 ```
 
-Cuando establecemos EC == casados al ser pareja, deberían de aparecer los registros sobre su pareja(ECPAR, NACPAR, SEXOPAR) y HIJOSDEAMBOS, tengan o no tengan, sin embargo en el 3.38% de los casos no es así, posiblemente sea porque son datos perdidos.
-
-Cuando son solteros, divorciados, viudos o separados pueden vivir o no con una pareja entonces es lógico que aparezcan datos ausentes, una opción sería rellenar con NO procede los datos ausentes previo a realizar el codificado.
-
-
-Al haber eliminado anteriormente las filas de personas casadas sin datos en las categorias anteriores, tampoco aparecen datos ausentes para los casados, para los no casados si hay NA lo cual es lógico pues no procede si una persona no casado no tiene hijos o no pertenece a ninguna de las categorias de SITUNUCLEOFAM, por tanto hacemos como anteriormente.
-
-
-
+  Seguidamente podemos ver que las variables ESTUDIOS y RELACT también tienen valores ausentes relacionados. Estas preguntas del cuestionario solo se tomaron a los mayores de 16 años, por tanto si filtramos el df por edad, vemos que los NA desaparecen completamente.
+  
+  De forma análoga, aquellos que contestaron que no se encontraban "Trabajando a tiempo completo" o "Trabajando a tiempo parcial", no correspondía que contestaran nada en el apartado de OCUPA ya que no trabajan.
 
 ```{r}
 df_EDAD <- df %>% 
@@ -610,11 +608,23 @@ select(ESTUDIOS,RELACT,EDAD) %>%
   df <- df %>%
   mutate(
     RELACT = ifelse(is.na(RELACT), "No procede", RELACT),
-    ESTUDIOS = ifelse(is.na(ESTUDIOS), "No procede", ESTUDIOS)
+    ESTUDIOS = ifelse(is.na(ESTUDIOS), "Menor de 16 años", ESTUDIOS)
+  )
+  
+df_OCUPADOS <- df %>% 
+  select(OCUPA,RELACT) %>% 
+  filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
+
+  sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    OCUPA = ifelse(is.na(OCUPA), "No trabaja", OCUPA)
   )
 ```
 
-Los menores de 16 años no quedan registrados con ningún tipo de estudios ni relación laboral ni tampoco ocupación, por tanto son NA que se explican por ese motivo.
+  Respecto a las variables relacionadas con el lugar de nacimiento y la nacionalidad, había apartados que correspondía responder en función o no de la nacionalidad del encuestado, por ejemplo, los ciudadanos nacidos en España no debían contestar cuando llegaron a España o cuando obtuvieron la nacionalidad. Que valores ausentes había y como se han imputado se puede ver en el código abajo:
 
 ```{r}
 df_extranjeros <- df %>% 
@@ -647,23 +657,9 @@ select(NACNACIMESP,NAC) %>%
   
 ```
 
-Las variables EDADFLLEG y TPOFLLEG miden la edad con la que un extranjero llego a españa y el tiempo que lleva residiendo respectivamente mientras que TPOFNACESP es el tiempo que lleva alguien con la nacionalidad española adquirida, cuando filtramos por no nacionales españoles y gente con nacionalidad española, vemos que desaparecen los NA lo cual es lógico puesto que un ciudadano español nacido en españa ya reside en españa desde que nació y por otro lado, todo ciudadano que no haya querido solicitar la nacionalidad española no le procede contestar cuanto años hace que la adquirio.
-
-Finalmente NACNACIMESP mide si alguien tiene o no la nacionalidad española de nacimiento o la adquirio después, si no la han solicitado no procede contestar y por eso aparecen los NA.
+  Finalmente quedaría la variable ANEDI, que solo registra el año de construcción del edificio a partir del año 2000, por tanto todo edificio construido previamente no se relleno, sin embargo tenemos variables que tienen esta información y más por lo que al ser una variable que apenas aporta información relevante podemos eliminarla.
 
 ```{r}
-df_OCUPADOS <- df %>% 
-  select(OCUPA,RELACT) %>% 
-  filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
-
-  sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
-})
-  
-    df <- df %>%
-  mutate(
-    OCUPA = ifelse(is.na(OCUPA), "No trabaja", OCUPA)
-  )
-  
 df_CONSTRUCCION <- df %>% 
   select(ANOANEDI,ANEDI) %>% 
   filter(ANEDI == "Después del año 2000")
@@ -681,7 +677,11 @@ df_num <- df_num %>%
 
 ```
 
-Que haya muchos NA es comprensible en el apartado de OCUPA puesto que si el entrevistado no se encuentra ocupado no puede contestar nada, respecto a ANONEDI solo recoge datos de construcción de vivienda a partir de los años 2000, por lo que no aporta información adicional relevante respecto a las variables ANEDI y FEDI, de hecho, ANEDI tampoco aporta más información que la variable FEDI, por lo que estas dos variables se pueden suprimir.
+  Una vez hecho todo el proceso de busqueda de datos perdidos e imputación, podemos ver como para nuestro conjunto de datos ya no tenemos datos ausentes, de hecho en ningún momento tuvimos (salvo en algún caso muy puntual), sin embargo era necesario añadir nuevas categorías dentro de las variables que capturen esa información implicita.
+  
+  El motivo por el que no se han podido imputar al df numérico todos esos NA es porque ningún tipo de imputación numérica hubiera sido realmente cierta y hubiera sesgado los verdaderos valores del conjunto, un ejemplo ilustrativo es la edad de llegada a España, para un ciudadano nacido en España podríamos imputar el valor 0, sin embargo esto se interpretaría como: "Ha llegado hace 0 años", lo cual sesgaría la distribución de años hacía 0, pues la mayoría de personas que contestó la encuesta eran de nacionalidad española.
+  
+  Este caso es el mismo para todas las variables con valores ausentes, por lo tanto, para no hacer un posterior análisis erroneo, es importante realizar un filtrado correcto de los valores ausentes antes de realizar cálculos numéricos, primero porque si no R no será capaz de realizar cálculos con datos ausentes, pero segundo y más importante, porque al ser NA donde no se pueden imputar datos, se nos esta indicando implicitamente que no debemos de utilizar más datos de los que hay, ya que si no estaríamos contestando preguntas con información de sujetos que no tienen nada que ver con la misma.
 
 ```{r}
 NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100
