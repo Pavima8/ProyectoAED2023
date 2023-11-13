@@ -36,8 +36,6 @@ journal: notspecified
 type: article
 status: submit
 # front matter
-simplesummary: |
-  A Simple summary goes here.
 abstract: |
   En este estudio de análisis exploratorio de datos, se examina un extenso conjunto de datos relacionados con hogares y personas, abordando diversas variables cruciales para comprender las dinámicas socioeconómicas. El análisis se centra en aspectos fundamentales de los hogares, como su tamaño, ubicación geográfica y modalidades de adquisición de vivienda. Además, se profundiza en la caracterización de las personas que conforman estos hogares, explorando variables como la edad, nacionalidad y nivel educativo. A través de técnicas estadísticas descriptivas y visualizaciones, se revelan patrones, correlaciones y tendencias emergentes en los datos, arrojando luz sobre las complejas interrelaciones entre los factores estudiados. Este enfoque proporciona una visión integral que no solo destaca la diversidad de contextos residenciales, sino también la heterogeneidad de la población, ofreciendo valiosas perspectivas para la formulación de políticas y la toma de decisiones informada en temas relacionados con la vivienda y el bienestar social.
   
@@ -50,46 +48,8 @@ acknowledgement: |
   indicate grants that you have received in support of your research work. 
   Clearly state if you received funds for covering the costs to publish in open 
   access.
-authorcontributions: |
-  For research articles with several authors, a short paragraph specifying their 
-  individual contributions must be provided. The following statements should be 
-  used ``X.X. and Y.Y. conceive and designed the experiments; X.X. performed the 
-  experiments; X.X. and Y.Y. analyzed the data; W.W. contributed 
-  reagents/materials/analysis tools; Y.Y. wrote the paper.'' Authorship must be
-  limited to those who have contributed substantially to the work reported.
 funding: |
-  Please add: ``This research received no external funding'' or ``This research 
-  was funded by NAME OF FUNDER grant number XXX.'' and  and ``The APC was funded 
-  by XXX''. Check carefully that the details given are accurate and use the 
-  standard spelling of funding agency names at 
-  \url{https://search.crossref.org/funding}, any errors may affect your future 
-  funding.
-institutionalreview: |
-  In this section, you should add the Institutional Review Board Statement and 
-  approval number, if relevant to your study. You might choose to exclude 
-  this statement if the study did not require ethical approval. Please note 
-  that the Editorial Office might ask you for further information. Please add 
-  “The study was conducted in accordance with the Declaration of Helsinki, 
-  and approved by the Institutional Review Board (or Ethics Committee) of 
-  NAME OF INSTITUTE (protocol code XXX and date of approval).” for studies 
-  involving humans. OR “The animal study protocol was approved by the 
-  Institutional Review Board (or Ethics Committee) of NAME OF INSTITUTE 
-  (protocol code XXX and date of approval).” for studies involving animals. 
-  OR “Ethical review and approval were waived for this study due to REASON 
-  (please provide a detailed justification).” OR “Not applicable” for
-   studies not involving humans or animals.
-informedconsent: |
-  Any research article describing a study involving humans should contain this 
-  statement. Please add ``Informed consent was obtained from all subjects 
-  involved in the study.'' OR ``Patient consent was waived due to REASON 
-  (please provide a detailed justification).'' OR ``Not applicable'' for 
-  studies not involving humans. You might also choose to exclude this statement 
-  if the study did not involve humans.
-  
-  Written informed consent for publication must be obtained from participating 
-  patients who can be identified (including by the patients themselves). Please 
-  state ``Written informed consent has been obtained from the patient(s) to 
-  publish this paper'' if applicable.
+  This research received no external funding.
 dataavailability: |
   We encourage all authors of articles published in MDPI journals to share 
   their research data. In this section, please provide details regarding where 
@@ -100,18 +60,7 @@ dataavailability: |
   Statements are available in section “MDPI Research Data Policies” at 
   \url{https://www.mdpi.com/ethics}.
 conflictsofinterest: |
-  Declare conflicts of interest or state 'The authors declare no conflict of 
-  interest.' Authors must identify and declare any personal circumstances or
-  interest that may be perceived as inappropriately influencing the
-  representation or interpretation of reported research results. Any role of the
-  funding sponsors in the design of the study; in the collection, analyses or 
-  interpretation of data in the writing of the manuscript, or in the decision to 
-  publish the results must be declared in this section. If there is no role, 
-  please state 'The founding sponsors had no role in the design of the study; 
-  in the collection, analyses, or interpretation of data; in the writing of the 
-  manuscript, an in the decision to publish the results'.
-sampleavailability: |
-  Samples of the compounds ...... are available from the authors.
+  The authors declare no conflict of interest.
 supplementary: |
  The following supporting information can be downloaded at:  
  \linksupplementary{s1}, Figure S1: title; Table S1: title; Video S1: title.
@@ -131,6 +80,7 @@ output:
   rticles::mdpi_article:
     extra_dependencies: longtable
 ---
+
 # Version
 
 This Rmd-skeleton uses the mdpi Latex template published 2023-03-25. 
@@ -1054,16 +1004,20 @@ rm(lev)
 
 
 ```{r}
-ggplot(df, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+geom_boxplot()+ scale_y_log10()+labs(title = "Boxplot del tamaño de la provincia y los metros de vivienda",
+ggplot(df_saltolinea, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+ geom_boxplot()+ stat_boxplot (geom='errorbar', linetype=1, width=0.5) + scale_y_log10()+labs(title = "Boxplot tamaño de la provincia y los metros de vivienda",
        x = "Tamaño de la provincia",
-       y = "Metros de la vivienda") +
-  theme_minimal()+ theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))
+       y = "Metros de la vivienda", fill= "Tamaño por número \n de habitantes") +
+  theme_minimal()+ theme(axis.text.x = element_blank())
 
 ```
-Observando el boxplot vemos como los metros de las viviendas no están muy relacionados con el número de habitantes por $m^2$, los valores del IQR oscilan entre unos $80m^2 $ y unos $200m^2$ de forma aproximada independientemente del tamaño de la provincia. Para los outlieres si que haremos una diferencia, mientras considera outlieres de forma general las viviendas con menos de $60m^2$, para las de $20.000$ habitantes por $m^2$ en adelante son outlieres las viviendas de más de $250m^2$, en cambio para las de menos de 20.000 habitantes por $m^2$ son las de $500m^2$. También sobre los outliers, salvo la categoría de "Menos de 101 habitantes", el resto presentan bastantes outliers, y cuanto mayor el número de habitantes, mayor es el número de outliers. Sobre este hecho podemos deducir que cuanto mayor es el número de habitantes, las viviendas suelen tener una dimensiones similares mientras que cuanto menor es el número de habitantes hay más diversidad en cuanto a las dimensiones de la casa. Además que en los lugares más habitados considera outlieres valores más pequeños que en los otros casos.
+
+Observando el boxplot vemos como los metros de las viviendas no están muy relacionados con el número de habitantes por $m^2$, los valores del IQR oscilan entre unos $80m^2 $ y unos $200m^2$ de forma aproximada independientemente del tamaño de la provincia. 
+
+Para los outlieres haremos una diferencia: los que se encuentran por debajo de $Q1-1.5\cdot IQR$, y los que se encuentran por encima de $Q3+1.5\cdot IQR$. Para todas las categorías considera, de forma general, outliers las viviendas con menos de $60m^2$. En cambio para los que se encuentran por encima de $Q3+1.5\cdot IQR$ hay una división, para las categorías de más de $20.000$ habitantes por $m^2$ considera outlieres las viviendas de más de $250m^2$, en cambio para las de menos de 20.000 habitantes por $m^2$ son las de $500m^2$. También sobre los outliers, salvo la categoría de "Menos de 101 habitantes", el resto presentan bastantes outliers, y cuanto mayor es el número de habitantes, mayor es el número de outliers. Sobre este hecho podemos deducir que cuanto mayor es el número de habitantes, las viviendas suelen tener unas dimensiones similares mientras que cuanto menor es el número de habitantes hay más diversidad en cuanto a las dimensiones de la casa. Además que en los lugares más habitados considera outlieres valores más pequeños que en los otros casos.
+
+Hay dos outliers, uno en la categoría de 10.001 a 20.000 personas y otro en la de 100.001 a 500.000 personas, que o bien podrían ser un error, que se equivocaron y realmente no corresponde al valor real, o bien si que realmente se trata de unas viviendas realmente grandes.
 
 En último lugar hablaremos sobre la mediana, que analizando el boxplot podemos ver como decrece cuando aumenta el tamaño de la provincia, por lo que cuanto mayor es el número de habitantes por $m^2$, menos metros suelen tener las vivendas. Sin embargo vemos que esta diferencia no es tan grande, la diferencia serán unos $50m^2$.
-
 
 *2. Afecta la actividad que desempeñas con el régimen de la vivienda?*
 
@@ -1208,13 +1162,12 @@ get_lat_long <- function(province) {
   result <- c(aux$lat, aux$lng)
   return(result)
 }
-# Get latitude and longitude of all provinces
+
 lat_long <- lapply(provinces, get_lat_long)
-# Combine latitude and longitude into a data frame
 lat_long_df <- do.call(rbind, lat_long)
 ```
 
-Una vez realizada la consulta via API a través de geonames y obtemnidas las latitudes y longitudes de las provincias, arreglamos el dataframe y lo guardamos en la carpeta data para no tener que realizar un aconsulta a la API cada vez que ejecutemos el código
+Una vez realizada la consulta via API a través de geonames, y obtenidas las latitudes y longitudes de las provincias, arreglamos el dataframe y lo guardamos en la carpeta data para no tener que realizar una consulta a la API cada vez que ejecutemos el código
 
 ```{r, eval = FALSE}
 lat_long_df <- data.frame(lat_long_df)
@@ -1228,6 +1181,8 @@ lat_long_df <- lat_long_df %>%
 
 write.csv(lat_long_df, file = "./data/geolocalizacion_provincias.csv")
 ```
+
+Ahora que tenemos nuestro dataset con las provincias y sus geolocalizaciones, lo cargamos para trabajar con él. A partir de los datos de nuestrso datasets ya filtrados, obtendremos una serie de representaciones que esperemos nos aporten información valiosa acerca de los mismos.
 
 ```{r}
 province_geoloc <- read.csv("./data/geolocalizacion_provincias.csv")
@@ -1266,6 +1221,8 @@ map_spain <- leaflet() %>%
   
   addLayersControl(overlayGroups = c("Media m² (2020)"))
 ```
+
+Todas estas representaciones junto con otros elementos, como varios datasets, las incluimos en una aplicación para que sea más fácil y claro trabajar.
 
 ```{r}
  ui <- dashboardPage(
