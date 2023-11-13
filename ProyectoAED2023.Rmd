@@ -174,7 +174,7 @@ the type of of submission and defaults to `article` but can be replaced with any
 
 Estas son las librerías que utilizaremos a lo largo del proyecto.
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=F, warning=FALSE}
 #librerias
 library(readr)
 library(readxl)
@@ -184,6 +184,7 @@ library(lubridate)
 library(caret)
 library(ggplot2)
 library(ggmosaic)
+library(geonames)
 library(shiny)
 library(shinydashboard)
 library(dplyr)
@@ -880,6 +881,120 @@ df <- df %>%
 
 6. Existe alguna diferencia entre los extranjeros nacionalizados y los no nacionalizados?
 
+
+### Anomalías
+
+```{r}
+View(df)
+str(df)
+
+df %>% 
+  count(DORMITORIOS)
+df %>% 
+  count(ASEOS)
+df %>% 
+  count(COMEDORES)
+df %>% 
+  count(TRASTEROS)
+df %>% 
+  count(OTRASHAB)
+
+df_filtrado <- df %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% dplyr::filter(NPV == 1)
+
+df %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% dplyr::filter(NPV == 1) %>% count(TIPOVIV)
+```
+
+### Detección de outliers
+
+```{r}
+rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado")))
+boxplot(df_filtrado$METROSVI,
+  ylab = "Metros vivienda",
+  main = "Metros de las viviendas"
+)
+
+boxplot(df_filtrado$DENSIDADVI,
+  ylab = "Densidad vivienda",
+  main = "Densidad de las viviendas por persona"
+)
+
+deteccion_outliers <- function(data){
+
+n<-length(data)
+nMiss<-sum(is.na(data)==TRUE)
+
+# p5-p95
+lowLim<-quantile(data,0.05)
+upLim<-quantile(data,0.95)
+minNom<-min(data[which(data>lowLim)])
+maxNom<-max(data[which(data<upLim)])
+nOut<-length(which(data<lowLim | data>upLim))
+
+outliers<-data.frame(method='p5-p95', n=n, nMiss=nMiss, nOut=nOut, lowLim=lowLim,upLim=upLim,minNom=minNom,maxNom=maxNom)
+
+# 3signa
+umbral3s<-mean(data)+3*sd(data)
+
+nOut3s<-length(data[abs(data)>umbral3s])
+lowLim3s<-mean(data)-3*sd(data)
+upLim3s<-mean(data)+3*sd(data)
+minNom<-min(data[(which(data>=lowLim3s))])
+maxNom<-max(data[(which(data<=upLim3s))])
+
+outliers<-rbind(outliers,data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
+
+# Hampel
+
+MADM<-1.4826*median(abs(data-median(data))) # Se puede calcular como mad(data)
+umbralH<-median(data)+3*MADM
+nOutH<-length(data[abs(data)>umbralH])
+lowLimH<-median(data)-3*MADM
+upLimH<-median(data)+3*MADM
+minNom<-min(data[(which(data>=lowLimH))])
+maxNom<-max(data[(which(data<=upLimH))])
+outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOutH, lowLim=lowLimH,upLim=upLimH,minNom=minNom,maxNom=maxNom))
+
+# Boxplot
+
+Q3Q1<-IQR(data)
+Q3<-quantile(data,probs = 0.75)%>%as.numeric
+Q1<-quantile(data,probs = 0.25)%>%as.numeric
+umbralSup<-Q3+1.5*Q3Q1
+umbralInf<-Q1-1.5*Q3Q1
+
+nOutB<-length(data[data>umbralSup |data<umbralInf])
+lowLimB<-umbralInf
+upLimB<-umbralSup
+minNom<-min(data[(which(data>=lowLimB))])
+maxNom<-max(data[(which(data<=upLimB))])
+outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOutB, lowLim=lowLimB,upLim=upLimB,minNom=minNom,maxNom=maxNom))
+
+return(outliers)
+
+}
+
+deteccion_outliers(df_filtrado$METROSVI)
+#Mas razonable acorde a tres sigma
+deteccion_outliers(df_filtrado$DENSIDADVI)
+#Mas razonable acorde a boxplot
+
+
+df_filtrado <- df %>%
+dplyr::filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_outliers <- df %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+
+df_filtrado_num <- df_merged %>%
+dplyr::filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_filtrado_num_outliers <- df_merged %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+  
+```
+
 ### Casos a estudiar
 
 _ANÁLISIS UNIVARIANTE_
@@ -905,7 +1020,10 @@ Por ejemplo, analizaremos la variable _REGVI_ ya que los resultados que observem
 ```{r}
 df_saltolinea <- df
 
-df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis \no bajo precio", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia por compra \ncon hipotecas" , REGVI))
+df_saltolinea <- df_saltolinea %>%
+  mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia, heredada o donada", REGVI)) %>%
+  mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedida", REGVI)) %>%
+  mutate(REGVI = gsub("Propia por compra con hipotecas", "Hipoteca" , REGVI))
 ```
 
 
@@ -1072,119 +1190,80 @@ rm(df_saltolinea)
 
 ```
 
-### Anomalías
+### Shiny app
 
-```{r}
-View(df)
-str(df)
+Este bloque es el encargado de obtener la latitud y longitud de las distintas provincias (no es necesario ejecutarlo, el dataset está guardado en la carpeta data)
 
-df %>% 
-  count(DORMITORIOS)
-df %>% 
-  count(ASEOS)
-df %>% 
-  count(COMEDORES)
-df %>% 
-  count(TRASTEROS)
-df %>% 
-  count(OTRASHAB)
+```{r, eval = FALSE}
+# List of provinces in Spain
+provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
 
-df_filtrado <- df %>%
-filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% filter(NPV == 1)
-
-df %>%
-filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% filter(NPV == 1) %>% count(TIPOVIV)
-```
-
-### Detección de outliers
-
-```{r}
-rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado")))
-boxplot(df_filtrado$METROSVI,
-  ylab = "Metros vivienda",
-  main = "Metros de las viviendas"
-)
-
-boxplot(df_filtrado$DENSIDADVI,
-  ylab = "Densidad vivienda",
-  main = "Densidad de las viviendas por persona"
-)
-
-deteccion_outliers <- function(data){
-
-n<-length(data)
-nMiss<-sum(is.na(data)==TRUE)
-
-# p5-p95
-lowLim<-quantile(data,0.05)
-upLim<-quantile(data,0.95)
-minNom<-min(data[which(data>lowLim)])
-maxNom<-max(data[which(data<upLim)])
-nOut<-length(which(data<lowLim | data>upLim))
-
-outliers<-data.frame(method='p5-p95', n=n, nMiss=nMiss, nOut=nOut, lowLim=lowLim,upLim=upLim,minNom=minNom,maxNom=maxNom)
-
-# 3signa
-umbral3s<-mean(data)+3*sd(data)
-
-nOut3s<-length(data[abs(data)>umbral3s])
-lowLim3s<-mean(data)-3*sd(data)
-upLim3s<-mean(data)+3*sd(data)
-minNom<-min(data[(which(data>=lowLim3s))])
-maxNom<-max(data[(which(data<=upLim3s))])
-
-outliers<-rbind(outliers,data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
-
-# Hampel
-
-MADM<-1.4826*median(abs(data-median(data))) # Se puede calcular como mad(data)
-umbralH<-median(data)+3*MADM
-nOutH<-length(data[abs(data)>umbralH])
-lowLimH<-median(data)-3*MADM
-upLimH<-median(data)+3*MADM
-minNom<-min(data[(which(data>=lowLimH))])
-maxNom<-max(data[(which(data<=upLimH))])
-outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOutH, lowLim=lowLimH,upLim=upLimH,minNom=minNom,maxNom=maxNom))
-
-# Boxplot
-
-Q3Q1<-IQR(data)
-Q3<-quantile(data,probs = 0.75)%>%as.numeric
-Q1<-quantile(data,probs = 0.25)%>%as.numeric
-umbralSup<-Q3+1.5*Q3Q1
-umbralInf<-Q1-1.5*Q3Q1
-
-nOutB<-length(data[data>umbralSup |data<umbralInf])
-lowLimB<-umbralInf
-upLimB<-umbralSup
-minNom<-min(data[(which(data>=lowLimB))])
-maxNom<-max(data[(which(data<=upLimB))])
-outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOutB, lowLim=lowLimB,upLim=upLimB,minNom=minNom,maxNom=maxNom))
-
-return(outliers)
-
+# Function to get latitude and longitude of a province
+get_lat_long <- function(province) {
+  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2", username = "pavima")
+  result <- c(aux$lat, aux$lng)
+  return(result)
 }
 
-deteccion_outliers(df_filtrado$METROSVI)
-#Mas razonable acorde a tres sigma
-deteccion_outliers(df_filtrado$DENSIDADVI)
-#Mas razonable acorde a boxplot
+# Get latitude and longitude of all provinces
+lat_long <- lapply(provinces, get_lat_long)
 
-
-df_filtrado <- df %>%
-filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
-
-df_outliers <- df %>%
-filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
-
-df_filtrado_num <- df_merged %>%
-filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
-
-df_filtrado_num_outliers <- df_merged %>%
-filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
-  
+# Combine latitude and longitude into a data frame
+lat_long_df <- do.call(rbind, lat_long)
 ```
 
+Una vez realizada la consulta via API a través de geonames y obtemnidas las latitudes y longitudes de las provincias, arreglamos el dataframe y lo guardamos en la carpeta data para no tener que realizar un aconsulta a la API cada vez que ejecutemos el código
+
+```{r, eval = FALSE}
+lat_long_df <- data.frame(lat_long_df)
+colnames(lat_long_df) = c("Latitud", "Longitud")
+
+provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
+
+lat_long_df <- lat_long_df %>%
+  mutate(Provincias = c(provinces)) %>%
+  select(Provincias, everything())
+
+write.csv(lat_long_df, file = "./data/geolocalizacion_provincias.csv")
+```
+
+```{r}
+province_geoloc <- read.csv("./data/geolocalizacion_provincias.csv")
+selection <- hogar %>%
+  select(IDQ_PV, METROSVI) %>%
+  group_by(IDQ_PV)  %>%
+  summarize(MeanSquareMeters = round(mean(METROSVI, na.rm = TRUE), 2)) %>%
+  mutate(aux = "Media (m²):") %>%
+  mutate(MeanSquareColRef = MeanSquareMeters) %>%
+  unite(MeanSquareM, aux, MeanSquareMeters, sep = " ")
+
+getColor <- colorNumeric(palette = "YlOrRd", domain = selection$MeanSquareColRef)
+ 
+# Crear un mapa centrado en España
+
+map_spain <- leaflet() %>%
+  addTiles(urlTemplate = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png') %>%
+  setView(lng = -3.7492, lat = 40.4637, zoom = 6) %>%
+  addCircleMarkers(
+    lat = province_geoloc$Latitud,
+    lng = province_geoloc$Longitud,
+    label = province_geoloc$Provincias,
+    popup = selection$MeanSquareM,
+    popupOptions = popupOptions(closeButton  = F),
+    color = getColor(selection$MeanSquareColRef),
+    group = "Media m² (2020)"
+    )%>%
+ 
+  addLegend(
+    position = "bottomright",
+    pal = getColor,
+    values = selection$MeanSquareColRef,
+    title = "Media m² (2020)",
+    group = "Media m² (2020)"
+    )%>%
+  
+  addLayersControl(overlayGroups = c("Media m² (2020)"))
+```
 
 ```{r}
  ui <- dashboardPage(
