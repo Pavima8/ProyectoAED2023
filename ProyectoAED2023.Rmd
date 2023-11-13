@@ -185,6 +185,7 @@ library(caret)
 library(ggplot2)
 library(ggmosaic)
 library(geonames)
+library(leaflet)
 library(shiny)
 library(shinydashboard)
 library(dplyr)
@@ -246,81 +247,81 @@ str(persona)
 
   # Cargamos el diccionario del dataset de hogar/hogar_2
 
-dic <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
+dic_hogar <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
 
   # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
 
-tab1 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
+tab1_hogar <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas1", col_names = FALSE, skip = 4)
 
   # Vamos a arreglar este data.frame para que quede más claro lo que contiene
 
-names(tab1) <- c("Cod", "Desc", "Var")
-ind <- which(tab1$Cod == "Código")
+names(tab1_hogar) <- c("Cod", "Desc", "Var")
+ind <- which(tab1_hogar$Cod == "Código")
 
 for (i in seq(1, length(ind))){
   if (is.na(ind[i+1])){
-    tab1[(ind[i]-1):nrow(tab1), "Var"] <- tab1[ind[i]-1, 3]
-    tab1[(ind[i]-1):nrow(tab1), "New_Var"] <- tab1[ind[i]-1, 1]
+    tab1_hogar[(ind[i]-1):nrow(tab1_hogar), "Var"] <- tab1_hogar[ind[i]-1, 3]
+    tab1_hogar[(ind[i]-1):nrow(tab1_hogar), "New_Var"] <- tab1_hogar[ind[i]-1, 1]
   } else {
-    tab1[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1[ind[i]-1, 3]
-    tab1[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1[ind[i]-1, 1]
+    tab1_hogar[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1_hogar[ind[i]-1, 3]
+    tab1_hogar[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1_hogar[ind[i]-1, 1]
   }
 }
-I <- (!is.na(tab1$Cod != "Código") & tab1$Cod != "Código")
-tab1 <- tab1[I, ]
+I <- (!is.na(tab1_hogar$Cod != "Código") & tab1_hogar$Cod != "Código")
+tab1_hogar <- tab1_hogar[I, ]
 
-J <- (!is.na(tab1$Desc))
-tab1 <- tab1[J, ]
+J <- (!is.na(tab1_hogar$Desc))
+tab1_hogar <- tab1_hogar[J, ]
 
   # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
 
-tab2 <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+tab2_hogar <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
 
   # Repetimos el proceso para la segunda tabla
 
-names(tab2) <- c("Cod", "Desc", "Var")
-ind <- which(tab2$Cod == "Código")
+names(tab2_hogar) <- c("Cod", "Desc", "Var")
+ind <- which(tab2_hogar$Cod == "Código")
 
 for (i in seq(1, length(ind))){
   if (is.na(ind[i+1])){
-    tab2[(ind[i]-1):nrow(tab2), "Var"] <- tab2[ind[i]-1, 3]
-    tab2[(ind[i]-1):nrow(tab2), "New_Var"] <- tab2[ind[i]-1, 1]
+    tab2_hogar[(ind[i]-1):nrow(tab2_hogar), "Var"] <- tab2_hogar[ind[i]-1, 3]
+    tab2_hogar[(ind[i]-1):nrow(tab2_hogar), "New_Var"] <- tab2_hogar[ind[i]-1, 1]
   } else {
-    tab2[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2[ind[i]-1, 3]
-    tab2[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2[ind[i]-1, 1]
+    tab2_hogar[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2_hogar[ind[i]-1, 3]
+    tab2_hogar[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2_hogar[ind[i]-1, 1]
   }
 }
-I <- (!is.na(tab2$Cod != "Código") & tab2$Cod != "Código")
-tab2 <- tab2[I, ]
+I <- (!is.na(tab2_hogar$Cod != "Código") & tab2_hogar$Cod != "Código")
+tab2_hogar <- tab2_hogar[I, ]
 
-J <- (!is.na(tab2$Desc))
+J <- (!is.na(tab2_hogar$Desc))
 
  # tab2 es la tabla de variables de tipo texto que vamos a unir a la tab1 para modificar la variables de hogar
 
-tab2 <- tab2[J, ]
+tab2_hogar <- tab2_hogar[J, ]
 
  # tab2_2 es la tabla que utilizamos para el df de hogar_2, aqui solo queremos convertir a texto la variable "TIPOHO" y por eso la especificamos
 
-tab2_2 <- tab2[tab2$Var %in% c("TIPOHO"),]
+tab2_2_hogar <- tab2_hogar[tab2_hogar$Var %in% c("TIPOHO"),]
 
-tab <- full_join(tab1, tab2)
-tab_2 <- full_join(tab1, tab2_2)
+tab_hogar <- full_join(tab1_hogar, tab2_hogar)
+tab_2_hogar <- full_join(tab1_hogar, tab2_2_hogar)
 
-tab$Cod <- as.numeric(as.character(tab$Cod))
-tab_2$Cod <- as.numeric(as.character(tab_2$Cod))
+tab_hogar$Cod <- as.numeric(as.character(tab_hogar$Cod))
+tab_2_hogar$Cod <- as.numeric(as.character(tab_2_hogar$Cod))
 
  # Este bucle for nos modifica el data frame hogar para convertir las variables a texto de tab
 
 for (i in names(hogar)){
   # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
-  pos <- which(tab$Var == i)
+  pos <- which(tab_hogar$Var == i)
   # El if es porque hay variables que no están en la tabla
   if (length(pos)>0){
     # Ahora tenemos que sustituir el código por lo que toca
     for (j in seq(1, length(pos))){
       # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
-      cod <- which(hogar[,i] == tab$Cod[pos[j]])
-      hogar[cod, i] <- tab$Desc[pos[j]]
+      cod <- which(hogar[,i] == tab_hogar$Cod[pos[j]])
+      hogar[cod, i] <- tab_hogar$Desc[pos[j]]
     }
   }
 }
@@ -329,14 +330,14 @@ for (i in names(hogar)){
 
 for (i in names(hogar_2)){
   # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
-  pos <- which(tab_2$Var == i)
+  pos <- which(tab_2_hogar$Var == i)
   # El if es porque hay variables que no están en la tabla
   if (length(pos)>0){
     # Ahora tenemos que sustituir el código por lo que toca
     for (j in seq(1, length(pos))){
       # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
-      cod <- which(hogar_2[,i] == tab_2$Cod[pos[j]])
-      hogar_2[cod, i] <- tab_2$Desc[pos[j]]
+      cod <- which(hogar_2[,i] == tab_2_hogar$Cod[pos[j]])
+      hogar_2[cod, i] <- tab_2_hogar$Desc[pos[j]]
     }
   }
 }
@@ -559,7 +560,7 @@ df_num <- full_join(hogar_2,persona_2)
 
  # Con rm podemos tener nuestro environment de RStudio más limpio y claro ya que en principio no vamos a necesitar ninguna variable de las de arriba
 
-rm(list=setdiff(ls(), c("df","df_num","hogar","persona","hogar_2","persona_2")))
+rm(list=setdiff(ls(), c("df","df_num","hogar","persona","hogar_2","persona_2", "tab_hogar")))
 ```
 
   Obervamos la estructura del df y observamos una variable (PERIODO) que presenta un formato de tipo integer, pero que realmente representa el año y el trimestre de toma de los datos, por lo que se ajusta más a un tipo fecha.
@@ -1028,7 +1029,7 @@ df_saltolinea <- df_saltolinea %>%
 
 
 ```{r}
-ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=REGVI))+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))
+ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=REGVI))+theme_minimal() +theme(axis.text.x = element_text(angle = 0, vjust = 0.95, hjust=1))
 
 rm(df_saltolinea)
 ```
@@ -1175,6 +1176,7 @@ ggplot(df_saltolinea, aes(x=OCUPA))+geom_bar(aes(fill=NACIM), position = "dodge"
        y = "Número de personas", fill = "Donde nacieron")
 rm(df_saltolinea)
 ```
+
 Sobre las personas nacidas en España notamos que la mayoría de ellas no trabajan, casi 125.000,  siendo más del doble con respecto a la siguiente categoría más numerosa. Le siguen los asalariados o trabajadores con contrato indefinido con casi 50.000 personas y el resto de categorías tienen cifras bastante inferiores, con menos de 25.000 personas. Para los nacidos fuera de España al tratarse de menos muestras en ninguna de las categorías se superan las 25.000 personas. Sin embargo si destaca que el mayor número se concentra en las que no trabajan,  seguido, con cifras similares, los asalariados o trabajadores en ambas categorías. Y con apenas representación quedan los empresarios.
 
 ```{r}
@@ -1190,24 +1192,24 @@ rm(df_saltolinea)
 
 ```
 
-### Shiny app
+### Ejemplo de uso de los datos
+
+Tras procesar y comprender los datos de nuestro set, ahora queremos explorar las posibilidades que estos datos tienen a la hora de generar contenido informativo. Para ello, crearemos una aplicación con la librería *shiny*, la cual contenga distintas funcionalidades generadaas a partir de los datos.
+
+Aprovechando que las instancias de nuestro dataset contienen la provincia en la cual se realiza la encuesta, un elemento de los que incluiremos será un mapa. Para ello, a través de la API de *geonames*, obtendremos la geolocalización de las distintas provincias que aparecne en el set de datos (en este caso aparecen todas).
 
 Este bloque es el encargado de obtener la latitud y longitud de las distintas provincias (no es necesario ejecutarlo, el dataset está guardado en la carpeta data)
 
 ```{r, eval = FALSE}
-# List of provinces in Spain
-provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
 
-# Function to get latitude and longitude of a province
+provinces <- tab_hogar$Desc[which(tab_hogar$Var == "IDQ_PV")]
 get_lat_long <- function(province) {
-  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2", username = "pavima")
+  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2") #Omito el username por privacidad
   result <- c(aux$lat, aux$lng)
   return(result)
 }
-
 # Get latitude and longitude of all provinces
 lat_long <- lapply(provinces, get_lat_long)
-
 # Combine latitude and longitude into a data frame
 lat_long_df <- do.call(rbind, lat_long)
 ```
@@ -1229,9 +1231,9 @@ write.csv(lat_long_df, file = "./data/geolocalizacion_provincias.csv")
 
 ```{r}
 province_geoloc <- read.csv("./data/geolocalizacion_provincias.csv")
-selection <- hogar %>%
-  select(IDQ_PV, METROSVI) %>%
-  group_by(IDQ_PV)  %>%
+selection <- df_filtrado %>%
+  select(PROVINCIA, METROSVI) %>%
+  group_by(PROVINCIA)  %>%
   summarize(MeanSquareMeters = round(mean(METROSVI, na.rm = TRUE), 2)) %>%
   mutate(aux = "Media (m²):") %>%
   mutate(MeanSquareColRef = MeanSquareMeters) %>%
@@ -1290,7 +1292,10 @@ map_spain <- leaflet() %>%
               DT::dataTableOutput("table1")),
       
       tabItem(tabName = "dashboard2", h2("Contenido del dataset personas"),
-              DT::dataTableOutput("table2")))
+              DT::dataTableOutput("table2")),
+      
+      tabItem(tabName = "dashboard3", h2("Contenido del dataset filtrado"),
+              DT::dataTableOutput("table3")))
     )
  )
 
@@ -1306,7 +1311,9 @@ map_spain <- leaflet() %>%
 
         menuItem("Datos de hogares", tabName="dashboard", icon = icon("table")),
         
-        menuItem("Datos de personas", tabName="dashboard2", icon = icon("table"))
+        menuItem("Datos de personas", tabName="dashboard2", icon = icon("table")),
+        
+        menuItem("Datos filtrados", tabName="dashboard3", icon = icon("table"))
       )
     })
 
@@ -1316,6 +1323,10 @@ map_spain <- leaflet() %>%
     
     output$table2 <- DT::renderDataTable({
     DT::datatable(persona, options = list(scrollX = T, scrollY = T))
+  })
+    
+    output$table3 <- DT::renderDataTable({
+    DT::datatable(df_filtrado, options = list(scrollX = T, scrollY = T))
   })
     
     output$map <- renderLeaflet({map_spain})
