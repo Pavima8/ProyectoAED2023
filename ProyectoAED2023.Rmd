@@ -728,30 +728,24 @@ NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100})
 NA_analisis
 ```
 
-Con esto hemos eliminado todos los valores ausentes del conjunto de datos, faltaría codificar todos los cambios realizados de forma que no afecte luego en fases posteriores del analisis.
-
 ### Cambios de tipo de variables
 
-La variable periodo representa una variable de tipo fecha Año-Trimestre, aunque ahora aparece como una variable de tipo numérico. Por otro lado hemos estado trabajando con una gran cantidad de variables de tipo factor, que actualmente aparecen como de tipo caracter y deben ser cambiadas. En la fase de codificación se pasarán a numeérico para poder usarse en análisis de correlación, modelos de regresión etc.
+  Como mencionamos anteriormente, vamos a cambiar las variables *character* a *factor*, no lo habiámos hecho antes por la imputación de valores que hemos hecho en el apartado anterior, de esta forma podemos ver cuantos levels tenemos para cada variable con un simple vistazo a la función str.
 
 ```{r, warning = F}
-rm(list=setdiff(ls(), c("df","df_num")))
-df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
-df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
 
 df <- df |> 
-  mutate(PERIODO = yq(PERIODO)) %>% 
-  mutate_if(is.character, factor)
+  mutate_if(is.character, factor) 
+
 
 
 df_num <- df_num |> 
-  mutate(PERIODO = yq(PERIODO)) %>% 
-  mutate_if(is.character, factor)
+  mutate_if(is.character, factor) 
 
 str(df)
 ```
 
-Analizando los levels de las variables factor, nos encontramos con países con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
+  Analizando los levels de las variables factor, nos encontramos que para las variables relacionadas con paises, aparecen levels con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
 
 ```{r}
 df <- df %>% 
@@ -761,12 +755,11 @@ df <- df %>%
 df_num <- df_num %>% 
   dplyr::filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
   droplevels()
-str(df)
 ```
 
 ### Cambio nombre variables
 
-Cambios de nombre de variables para mejorar la claridad de algunas variables
+  Cambios de nombre de variables para mejorar la claridad de algunas variables
 
 ```{r}
 df <- df %>% 
@@ -791,9 +784,9 @@ df <- df %>%
 
 ### Recodificación de variables
 
-En un inicio, nuestro dataset presentaba un tipo de codificación ya establecido. El problema era la dificultad de interpretar el dataset y sus posibles relaciones, entonces se decidió descodificar primero las variables para poder entender qué significaba cada una de forma sencilla. Tras haber realizado una parte del proceso de limpieza del dataset, es necesario recodificarlo, esta vez acorde al tipo de codificación que queramos a la hora de poder hacer un buen análisis de detección de outliers y búsqueda de correlaciones entre variables.
+  En un inicio, nuestro dataset presentaba un tipo de codificación ya establecido. El problema era la dificultad de interpretar el dataset y sus posibles relaciones, entonces se decidió descodificar primero las variables para poder entender qué significaba cada variable de forma sencilla. Con esto vimos que el análisis de hecho se podía realizar de forma más intuitiva y decidimos que nuestras variables podían permanecer en formato *character*, sin embargo nos vimos en la necesidad de mantener un dataset con principalmente variables numéricas con la que se pudiera eventualmente modelizar por ejemplo.
 
-Las variables a codificar son aquellas de tipo categórico. Las variables categóricas se dividen en dos grupos: ordinales y cardinales. En las variables categóricas ordinales, se pueden codificar acorde a un orden númerico, ya que existe una jerarquia. a > b > c. En las variables cardinales, por el contrario, no se aprecia un orden entre las variables: Andalucia !> Aragón. Esto es importante porque para cada caso las técnicas de codificación son distintas.
+  Una vez investigado, observamos que la codificación de algunas variables no era la adecuada por el tipo de variable categórica. Las variables categóricas se dividen en dos grupos: ordinales y cardinales. En las variables categóricas ordinales, se pueden codificar acorde a un orden númerico, ya que existe una jerarquia. a > b > c. En las variables cardinales, por el contrario, no se aprecia un orden entre las variables: Andalucia !> Aragón. Esto es importante porque para cada caso las técnicas de codificación son distintas. Las variables categóricas ordinales estan bien codificadas en el dataset, las categóricas ordinales por el contrario han requerido una recodificación, nosotros hemos utilizado "One-hot encoding", también conocido como convertir a "dummy variables" que basicamente es un tipo de codificación binaria. 1 es que la variable toma un valor, 0 que no lo toma.
 
 Como variables ordinales en este caso podemos considerar a **TAMAÑO**, **ESTUDIOS**, **TIPOVIV**, **FEDI**, mientras que el resto son cardinales.
 
@@ -815,7 +808,7 @@ df_merged <- df_merged %>%
   select(!(columnas_dummy))
 
 df <- df %>% 
-  mutate(METROSVI = as.numeric(METROSVI), EDAD = as.numeric(EDAD))
+  mutate(METROSVI = as.numeric(METROSVI))
 ```
 
 ### Casos posibles a estudiar
@@ -834,6 +827,8 @@ df <- df %>%
 
 
 ### Anomalías
+
+  Durante el proceso de detección de anomalías nos hemos servido de una serie de principios muy básicos. Al estar nuestro conjunto de datos repleto de datos categóricos es complicado determinar que supone una anomalía y que no, en este caso nos hemos ceñido a las variables que mediante el sentido común se puede determinar que constituyen anomalías del conjunto, se han utilizado counts sobre las habitaciones del hogar para detectar posibles valores fuera de lo normal, ya que si aplicaramos este principio sobre otras variables como **NAC** o **EC** podriamos pensar que "No ser español" o "Viudo/a" podrían ser anomalías y eliminarlas del conjunto nos quitaría riqueza e información relevante del conjunto.
 
 ```{r}
 View(df)
@@ -859,8 +854,9 @@ dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 
 
 ### Detección de outliers
 
+  Apenas tenemos dos variables puramente numéricas que podamos utilizar de forma efectiva en la detección de outliers, **METROSVI** y **DENSIDADVI**, para la detección de outliers podemos utilizar técnicas visuales simples como un Boxplot o podemos utilizar formulas como 3sigma, Hampel, Boxplot entre otras opciones. En este caso hemos usado varios enfoques, primero visualizar nuestros conjuntos para ver si tenían o no outliers y luego aplicar los métodos de detección de outliers. El criterio que se aplica para determinar la elección del método es unicamente observar que datos nos indica y utilizar el sentido común de que nos parece o no outlier, sin embargo este criterio es subjetivo y cualquiera podría elegir un criterio diferente al utilizado aquí.
+
 ```{r}
-rm(list=setdiff(ls(), c("df","df_num","df_merged","df_filtrado")))
 boxplot(df_filtrado$METROSVI,
   ylab = "Metros vivienda",
   main = "Metros de las viviendas"
@@ -928,6 +924,7 @@ return(outliers)
 
 deteccion_outliers(df_filtrado$METROSVI)
 #Mas razonable acorde a tres sigma
+
 deteccion_outliers(df_filtrado$DENSIDADVI)
 #Mas razonable acorde a boxplot
 
@@ -943,8 +940,13 @@ dplyr::filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & 
 
 df_filtrado_num_outliers <- df_merged %>%
 dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+
+hist(df_filtrado$METROSVI)
+hist(df_filtrado$DENSIDADVI)
   
 ```
+
+  Hemos decidido mantener el dataframe que contiene outliers ya que podría ser interesante si alguien quisiera observar si existen diferencias en el resto de variables del conjunto entre el conjunto de datos filtrado de outliers y anomalías y el conjunto que solo tiene estos valores anormales. Para este proyecto sin embargo no vamos a analizar esto.
 
 ### Casos a estudiar
 
