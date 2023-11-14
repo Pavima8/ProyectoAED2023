@@ -1,0 +1,1273 @@
+---
+title: "Proyecto Análisis Exploratorio de Datos"
+author: "Adrián Lara Velasco, Andrea Romero Medina y Pablo Vicente Martínez"
+date: "2023"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 3
+    number_sections: no
+---
+
+## Abstract
+
+ En este estudio de análisis exploratorio de datos, se examina un extenso conjunto de datos relacionados con hogares y personas, abordando diversas variables cruciales para comprender las dinámicas socioeconómicas. El análisis se centra en aspectos fundamentales de los hogares, como su tamaño, ubicación geográfica y modalidades de adquisición de vivienda. Además, se profundiza en la caracterización de las personas que conforman estos hogares, explorando variables como la edad, nacionalidad y nivel educativo. A través de técnicas estadísticas descriptivas y visualizaciones, se revelan patrones, correlaciones y tendencias emergentes en los datos, arrojando luz sobre las complejas interrelaciones entre los factores estudiados. Este enfoque proporciona una visión integral que no solo destaca la diversidad de contextos residenciales, sino también la heterogeneidad de la población, ofreciendo valiosas perspectivas para la formulación de políticas y la toma de decisiones informada en temas relacionados con la vivienda y el bienestar social.
+ 
+```{r echo=F, warning=FALSE, message=F}
+#librerias
+if (!require(pacman)) {
+install.packages("pacman")
+library(pacman)
+}
+pacman::p_load(readr, readxl, tidyr, dplyr, lubridate, leaflet, caret, ggplot2, ggmosaic, geonames, shiny, shinydashboard, DT, cowplot, corrplot)
+```
+
+## Carga de los datos
+
+Los conjuntos de datos a estudiar se obtuvieron de dos archivos ".csv" en la siguiente url del INE
+
+(*https://www.ine.es/dyngs/INEbase/es/operacion.htm?c=Estadistica_C&cid=1254736176952&menu=resultados&secc=1254736195203&idp=1254735572981#!tabs-1254736195203*)
+
+La carga de los mismos fue bastante sencilla ya que el porpio INE proprocionaba **tiny datasets**.
+
+```{r echo=F}
+hogar <- read.csv("./data/datos_hogares_2020/ECHHogares_2020.csv", sep = "\t")
+hogar_2 <- hogar
+persona <- read.csv("./data/datos_personas_2020/ECHPersonas_2020.csv", sep = "\t")
+persona_2 <- persona
+```
+
+Los conjuntos de datos con los que inicialmente trabajamos se denominan hogar y persona (hogar_2 y persona_2 se explicarán más adelante). hogar es un conjunto de 88783 observaciones y 27 variables mientras que persona presenta 220198 observaciones y 27 variables.
+
+Hay una serie de variables presentes en ambos conjuntos que actuan como primary keys para su posterior unión (codebook). 
+
+## Limpieza de los datos
+
+Antes de empezar a trabajar en los dataset, miramos la estructura de las variables para obtener una primera referencia sobre los datos.
+
+```{r, results='hide'}
+str(hogar)
+str(persona)
+```
+
+  Podemos observar que tenemos muchas variables tipo *integer* así como algunas variables de tipo *numérico*, *character* y algunas de tipo *lógico*. En este vistazo inicial también se observa una gran presencia de valores ausentes (NA's) en determinadas variables.
+
+  El INE nos ofrece un informe con la metodología empleada para la obtención de los datos así como la explicación de las variables que se encuentran en el dataset. Para recoger la información se utilizaron cuestionarios donde el participante debe contestar a cada pregunta con una respuesta dentro de una lista de respuestas predefinidas. Además, hay preguntas que no todos los participantes deben contestar porque dependen de respuestas anteriores, por tanto esto nos aporta información en dos direcciones:
+  
+  1º. Gran parte de las variables de los conjuntos de datos son categóricas
+  
+  2º. Muchos datos ausentes se deban a no tener que responder una determinada pregunta
+  
+  Al ser una gran cantidad de variables de tipo *categórico*, estas podían aparecer en forma de texto (factor), o en forma de número (integer). Ambos enfoques tienen sus ventajas e inconvenientes. Si tenemos las variables en formato texto, como factor, podemos saber de manera más sencilla qué significa cada dato, lo que permite clasificar los datos con mayor facilidad, encontrar relaciones etc. También nos permite añadir categorías en formato texto alla donde hay NA's, como categorías adicionales a las existentes, y poder operar con un dataset sin valores ausentes. La principal desventaja es que no se puede modelizar con variables tipo texto, necesitan ser transformadas a tipo numérico para ello. La ventaja de utilizar variables de tipo numérico es la que se acaba de presentar, el poder modelizar. La principal desventaja es el hecho de que en algunas ocasiones, como se explicará posteriormente, no se pueden imputar valores a los NA simplemente porque no procede hacerlo.
+  
+  Por tanto se ha decidido utilizar dos datasets, uno donde transformamos las variables categóricas a texto, y otro dataset donde mantenemos las variables en un formato numérico, exceptuando algunas donde sería muy complicado de operar y es preferible operar con texto, por ejemplo la variable 'Nombre de países'.
+  
+  - hogar y persona son datasets donde transformamos las variables a tipo texto
+  - hogar_2 y persona_2 datasets donde mantenemos el formato numérico.
+  
+  Para este proyecto trabajaremos principalmente sobre el dataset con variables de tipo texto pero se crea el de formato numérico como conjunto de datos que se podría usar para modelizar (encoding).
+  
+  Por tanto vamos a transformar las variables deseadas a formato texto.
+  
+### Transformación de variables
+
+  Para transformar las variables utlizamos los diccionarios adjuntos al dataset, donde se explica cómo se llama cada variable, qué significa y cómo está codificada.
+  
+  Cada hoja del diccionario contiene información sobre las variables. Esta información es obtenida a partir de la ejecución de una fucnión y posteriormnete sustituida en el dataset de trabajo.
+
+```{r variables de hogar a caracter, message=FALSE, warning=FALSE, echo = FALSE}
+
+  # Cargamos el diccionario del dataset de hogar/hogar_2
+
+dic_hogar <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", skip = 1)
+
+  # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
+
+tab1_hogar <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", 
+                         sheet = "Tablas1", col_names = FALSE, skip = 4)
+
+  # Vamos a arreglar este data.frame para que quede más claro lo que contiene
+
+names(tab1_hogar) <- c("Cod", "Desc", "Var")
+ind <- which(tab1_hogar$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1_hogar[(ind[i]-1):nrow(tab1_hogar), "Var"] <- tab1_hogar[ind[i]-1, 3]
+    tab1_hogar[(ind[i]-1):nrow(tab1_hogar), "New_Var"] <- tab1_hogar[ind[i]-1, 1]
+  } else {
+    tab1_hogar[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1_hogar[ind[i]-1, 3]
+    tab1_hogar[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1_hogar[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab1_hogar$Cod != "Código") & tab1_hogar$Cod != "Código")
+tab1_hogar <- tab1_hogar[I, ]
+
+J <- (!is.na(tab1_hogar$Desc))
+tab1_hogar <- tab1_hogar[J, ]
+
+  # Cada variable tab, representa una hoja de excel de donde vamos a sacar la información
+
+tab2_hogar <- read_excel("./data/datos_hogares_2020/dr_ECHHogares_2020.xlsx", 
+                         sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+  # Repetimos el proceso para la segunda tabla
+
+names(tab2_hogar) <- c("Cod", "Desc", "Var")
+ind <- which(tab2_hogar$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2_hogar[(ind[i]-1):nrow(tab2_hogar), "Var"] <- tab2_hogar[ind[i]-1, 3]
+    tab2_hogar[(ind[i]-1):nrow(tab2_hogar), "New_Var"] <- tab2_hogar[ind[i]-1, 1]
+  } else {
+    tab2_hogar[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2_hogar[ind[i]-1, 3]
+    tab2_hogar[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2_hogar[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2_hogar$Cod != "Código") & tab2_hogar$Cod != "Código")
+tab2_hogar <- tab2_hogar[I, ]
+
+J <- (!is.na(tab2_hogar$Desc))
+
+ # tab2 es la tabla de variables de tipo texto que vamos a unir a la tab1 para 
+ #modificar la variables de hogar
+
+tab2_hogar <- tab2_hogar[J, ]
+
+ # tab2_2 es la tabla que utilizamos para el df de hogar_2, aqui solo queremos 
+ #convertir a texto la variable "TIPOHO" y por eso la especificamos
+
+tab2_2_hogar <- tab2_hogar[tab2_hogar$Var %in% c("TIPOHO"),]
+
+tab_hogar <- full_join(tab1_hogar, tab2_hogar)
+tab_2_hogar <- full_join(tab1_hogar, tab2_2_hogar)
+
+tab_hogar$Cod <- as.numeric(as.character(tab_hogar$Cod))
+tab_2_hogar$Cod <- as.numeric(as.character(tab_2_hogar$Cod))
+
+ # Este bucle for nos modifica el data frame hogar para convertir las variables 
+ #a texto de tab
+
+for (i in names(hogar)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info 
+  # sobre esa variable
+  pos <- which(tab_hogar$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo 
+      # código para así poder sustituirlos
+      cod <- which(hogar[,i] == tab_hogar$Cod[pos[j]])
+      hogar[cod, i] <- tab_hogar$Desc[pos[j]]
+    }
+  }
+}
+
+  # Este bucle for nos modifica el data frame hogar para convertir las 
+  # variables a texto de tab_2
+
+for (i in names(hogar_2)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info 
+  #sobre esa variable
+  pos <- which(tab_2_hogar$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo 
+      # código para así poder sustituirlos
+      cod <- which(hogar_2[,i] == tab_2_hogar$Cod[pos[j]])
+      hogar_2[cod, i] <- tab_2_hogar$Desc[pos[j]]
+    }
+  }
+}
+
+```
+
+  Repetimos este proceso para el conjunto de datos de persona/persona_2
+
+```{r df personas, include=FALSE, echo = FALSE}
+
+  # Cargamos el diccionario del dataset de hogar/hogar_2
+
+dic_personas <- read_excel(
+  "./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", skip = 1)
+
+   # Cada variable tab, representa una hoja de excel de donde vamos a sacar la 
+#información 
+
+tab1_personas <- read_excel(
+  "./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas1", 
+  col_names = FALSE, skip = 4)
+
+  # El proceso que se sigue es identico al realizado para el df de hogar
+
+names(tab1_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab1_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab1_personas[(ind[i]-1):nrow(tab1_personas), "Var"] <- tab1_personas[ind[i]-1, 3]
+    tab1_personas[(ind[i]-1):nrow(tab1_personas), "New_Var"] <- tab1_personas[ind[i]-1, 1]
+  } else {
+    tab1_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab1_personas[ind[i]-1, 3]
+    tab1_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab1_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab1_personas$Cod != "Código") & tab1_personas$Cod != "Código")
+tab1_personas <- tab1_personas[I, ]
+
+J <- (!is.na(tab1_personas$Desc))
+tab1_personas <- tab1_personas[J, ]
+
+  # Cargamos la segunda tabla
+
+tab2_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas2", col_names = FALSE, skip = 4)
+
+  # Repetimos el proceso para la segunda tabla
+
+names(tab2_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab2_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab2_personas[(ind[i]-1):nrow(tab2_personas), "Var"] <- tab2_personas[ind[i]-1, 3]
+    tab2_personas[(ind[i]-1):nrow(tab2_personas), "New_Var"] <- tab2_personas[ind[i]-1, 1]
+  } else {
+    tab2_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab2_personas[ind[i]-1, 3]
+    tab2_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab2_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab2_personas$Cod != "Código") & tab2_personas$Cod != "Código")
+tab2_personas <- tab2_personas[I, ]
+
+J <- (!is.na(tab2_personas$Desc))
+tab2_personas <- tab2_personas[J, ]
+
+  # Hay variables que como "NACIM *** (2 veces más)", no detectan correctamente las variables, hemos tenido que hacer este sistema para arreglarlo
+
+  # Básicamente creamos otro df donde creamos todas las variables que es necesario modificar obteniendo los valores que nos interesan
+
+tab2_personas[tab2_personas == "NACIM *** (2 veces más)"] <- "NACIM"
+
+tab2_personas_2_3 <- tab2_personas[19:20,]
+variables_NACIM <- c("NACIM","NACIMPADRE","NACIMMADRE")
+tab2_personas_2_3 <- do.call(rbind, replicate(3, tab2_personas_2_3, simplify = FALSE))
+tab2_personas_2_3$Var[which(tab2_personas_2_3[,"Desc"] == "España")] <-  variables_NACIM
+
+ind <- which(tab2_personas_2_3[,"Desc"] == "España")
+
+  # Para poner correctamente el nombre de las variables en la columna Var
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab2_personas_2_3$Var[ind[i]:(ind[i+1] - 1)] <- variables_NACIM[i]
+}
+  else{
+  tab2_personas_2_3$Var[ind[i]:nrow(tab2_personas_2_3)] <- variables_NACIM[i]  
+  }
+}
+
+  # Para la variable "P01 *** (18 veces más)" sucede lo mismo y el proceso que se sigue es equivalente al código inmediatamente arriba
+
+tab2_personas[tab2_personas == "P01 *** (18 veces más)"] <- "P01"
+
+tab2_personas_2 <- tab2_personas[26:33,]
+vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
+tab2_personas_2 <- do.call(rbind, replicate(19, tab2_personas_2, simplify = FALSE))
+tab2_personas_2$Var[which(tab2_personas_2[,"Desc"] == "Padre/Madre")] <-  vector_p
+
+ind <- which(tab2_personas_2[,"Desc"] == "Padre/Madre")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab2_personas_2$Var[ind[i]:(ind[i+1] - 1)] <- vector_p[i]
+}
+  else{
+  tab2_personas_2$Var[ind[i]:nrow(tab2_personas_2)] <- vector_p[i]  
+  }
+}
+  
+  # Unimos los df creados a posteriori para incluir las variables que por falla de la estructura de los diccionarios no se transformaba correctamente
+
+tab2_personas_ok <- full_join(tab2_personas,tab2_personas_2)
+tab2_personas_ok_ok <- full_join(tab2_personas_ok,tab2_personas_2_3)
+
+  # Cargamos la tercera tabla
+
+tab3_personas <- read_excel("./data/datos_personas_2020/dr_ECHPersonas_2020.xlsx", sheet = "Tablas3", col_names = FALSE, skip = 4)
+
+  # Repetimos el proceso para la segunda tabla
+
+names(tab3_personas) <- c("Cod", "Desc", "Var")
+ind <- which(tab3_personas$Cod == "Código")
+
+for (i in seq(1, length(ind))){
+  if (is.na(ind[i+1])){
+    tab3_personas[(ind[i]-1):nrow(tab3_personas), "Var"] <- tab3_personas[ind[i]-1, 3]
+    tab3_personas[(ind[i]-1):nrow(tab3_personas), "New_Var"] <- tab3_personas[ind[i]-1, 1]
+  } else {
+    tab3_personas[(ind[i]-1):(ind[i+1]-2), "Var"] <- tab3_personas[ind[i]-1, 3]
+    tab3_personas[(ind[i]-1):(ind[i+1]-2), "New_Var"] <- tab3_personas[ind[i]-1, 1]
+  }
+}
+I <- (!is.na(tab3_personas$Cod != "Código") & tab3_personas$Cod != "Código")
+tab3_personas <- tab3_personas[I, ]
+
+J <- (!is.na(tab3_personas$Desc))
+tab3_personas <- tab3_personas[J, ]
+
+  # Para la variable "PNACIMT *** (4 veces más)" sucede lo mismo y el proceso que se sigue es equivalente al código de modificación de "P01 *** (18 veces más)"
+
+tab3_personas[tab3_personas == "PNACIMT *** (4 veces más)"] <- "PNACIMT"
+
+variables <- c("PNACIMT","PNACT","PNACNACIMT","PNACIMPADRET","PNACIMMADRET")
+which(tab3_personas[,"Desc"] == "Austria")
+tab3_personas <- rbind(tab3_personas, tab3_personas, tab3_personas, tab3_personas, tab3_personas)
+tab3_personas$Var[which(tab3_personas[,"Desc"] == "Austria")] <-  variables
+ind <- which(tab3_personas[,"Desc"] == "Austria")
+
+for (i in (1:length(ind))){
+  if (i + 1 <= length(ind)){
+  tab3_personas$Var[ind[i]:(ind[i+1] - 1)] <- variables[i]
+}
+  else{
+  tab3_personas$Var[ind[i]:nrow(tab3_personas)] <- variables[i]  
+  }
+}
+
+  # Unimos las tablas modificadas, además de las tablas de las hojas 1, 2 y 3
+
+tab_personas <- full_join(tab1_personas, tab2_personas_ok_ok)
+tab_personas_ok <- full_join(tab_personas, tab3_personas)
+
+ # df utilizado para modificar el conjunto de datos de persona
+
+tab_personas_ok$Cod <- as.numeric(as.character(tab_personas_ok$Cod))
+
+ # df utilizado para modificar el conjunto de datos de persona_2 siendo c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET") las variables que queremos convertir a texto únicamente.
+
+tab_personas_ok_2 <- tab_personas_ok[tab_personas_ok$Var %in% c("CA", "IDQ_PV","P01","RELACT","SITUHO","SITUHO_D", "PNACIMT","PNACT","PNACNACIMT","PNACNACIMPADRET","PNACNACIMMADRET","PNACNACIMT","PNACIMPADRET","PNACIMMADRET"),]
+tab_personas_ok_2$Cod <- as.numeric(as.character(tab_personas_ok_2$Cod))
+
+# Este bucle for nos modifica el data frame persona para convertir las variables a texto de tab_personas_ok
+
+for (i in names(persona)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona[,i] == tab_personas_ok$Cod[pos[j]])
+      persona[cod, i] <- tab_personas_ok$Desc[pos[j]]
+    }
+  }
+}
+
+  # Este bucle for nos modifica el data frame persona_2 para convertir las variables a texto de tab_personas_ok_2
+
+for (i in names(persona_2)){
+  # El vector pos es el que contiene las posiciones de tab que contienen info sobre esa variable
+  pos <- which(tab_personas_ok_2$Var == i)
+  # El if es porque hay variables que no están en la tabla
+  if (length(pos)>0){
+    # Ahora tenemos que sustituir el código por lo que toca
+    for (j in seq(1, length(pos))){
+      # El vector cod contiene las posiciones de hogar que tienen el mismo código para así poder sustituirlos
+      cod <- which(persona_2[,i] == tab_personas_ok_2$Cod[pos[j]])
+      persona_2[cod, i] <- tab_personas_ok_2$Desc[pos[j]]
+    }
+  }
+}
+```
+
+  De este modo hemos trasfromado las variables que queriamos tener en texto y mantenemos aquellas variables númericas de interés para poder tener un df utilizable para modelizar y otro para analizar cualitativamente.
+
+```{r, results='hide'}
+head(persona)
+head(hogar)
+head(persona_2)
+head(hogar_2)
+```
+
+  Unimos finalmente los subconjuntos de datos para tener el conjunto que vamos a utilizar en el análisis.
+  
+  - df: Donde almacenamos la mayor parte de las variables en tipo texto
+  
+  - df_num: Donde almacenamos la mayor parte de las variables en tipo numérico
+
+```{r warning=FALSE, echo=FALSE, include = FALSE}
+df <- full_join(hogar,persona)
+df_num <- full_join(hogar_2,persona_2)
+
+ # Con rm podemos tener nuestro environment de RStudio más limpio y claro ya que en principio no vamos a necesitar ninguna variable de las de arriba
+
+rm(list=setdiff(ls(), c("df","df_num","hogar","persona","hogar_2","persona_2", "tab_hogar")))
+```
+
+  Obervamos la estructura del df y observamos una variable (PERIODO) que presenta un formato de tipo integer, pero que realmente representa el año y el trimestre de toma de los datos, por lo que se ajusta más a un tipo fecha. Por lo tanto modificamos este dato para expresarlo en dicho tipo.
+
+```{r, echo=FALSE, include = FALSE}
+str(df)
+
+  # Sustituimos 20191,20192... por 201901,20192... ya que la función yq() de lubridate no entiende el dato como fecha de otra forma
+
+df$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df$PERIODO)
+df_num$PERIODO <- gsub("^(.{4})(.{0,})", "\\10\\2", df_num$PERIODO)
+
+df <- df |> 
+  mutate(PERIODO = yq(PERIODO))
+
+df_num <- df_num |> 
+  mutate(PERIODO = yq(PERIODO))
+
+  # Si se carga este chunk multiples veces dará error, en ese caso vuelve a cargar el chunk inmediatamente arriba para volver a cargar los df en sus estado anteriores.
+```
+  
+  Las variables de tipo *character* las podemos trasnformar a factor, sin embargo nos vamos a esperar a haber realizado primero el análisis de NA's ya que vamos a crear nuevas categorías de datos al imputar valores.
+
+### Análisis de NA's
+
+  El dataset contiene numerosos NA's, esto se puede deber a diversos factores como valores perdidos, o que no proceda la existencia de ningún valor en ese caso. Este dataset contiene mayoritariamente NA's debido a lo comentado previamente sobre que hay algunas preguntas a las que n0o corresponde contetsra dependiendo de las respuestas dadas previamente. Por tanto, si analizamos el por qué de cada caso, podremos obtener información adicional.
+  
+  Como veremos a continuación, no tiene sentido asignar un valor numérico a un valor NA, por tanto para nuestro dataset numérico no tiene sentido imputar valores a los NA. Si se quisiera modelizar o utilizar cualquier técnica que requiera cálculos, es imprescindible tener el dataset adaptado a cada modelo que se quiera implementar, aplicando distintos filtros que hace que desaparezcan los NA. Por ejemplo, filtrar la edad en valores mayores de 16 años. Esto se analizará con más detalle a lo largo de la sección.
+
+
+```{r Analisis NA, echo = FALSE, results='hide'}
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100})
+NA_analisis 
+```
+
+  Hay variables con un 100% de NA y otras con porcentajes del 50%, 60%, 45%, 16%, etc. Un aspecto interesante que podemos observar, es que hay variables que tienen exactamente el mismo porcentaje de NA's, esto podría indicarnos relaciones entre las variables.
+
+  Las primeras variables que vamos a analizar son P01:P19. Estas indican las relaciones de parentesco entre los miembros del hogar.
+
+```{r}
+vector_p <- paste0("P", sprintf("%02d", seq(1, 19)))
+NA_analisis_P <- sapply(df[,vector_p], function(x) {mean(is.na(x)) * 100})
+NA_analisis_P
+```
+
+  Vemos que casi todas ellas tienen porcentajes muy elevados de NA's, inclusive del 100%. Esto es lógico pues es poco común que hayan familias de más de 4 miembros, además solamente con P01 ya podemos tener la información sobre las relaciones de parentesco de todos los miembros de la familia por lo que podemos eliminar P02:P19 sin perder información. 
+
+```{r, echo = FALSE, results='hide'}
+
+  #Imputamos al miembro que realizó la encuesta el valor de "Miembro encuestado" ya que aparecía como NA
+
+df[ ,"P01"][which(df[,"NPV"] == 1)] <- "Miembro encuestado"
+df_num[ ,"P01"][which(df_num[,"NPV"] == 1)] <- "Miembro encuestado"
+
+
+df <- df %>% 
+  select(-(P02:P19))
+
+df_num <- df_num %>% 
+  select(-(P02:P19))
+
+NA_analisis_P <- mean(is.na(df[,"P01"]) * 100)
+NA_analisis_P
+```
+  
+  Si le imputamos al miembro que realizó la encuesta, NPV == 1, el valor "Miembro encuestado" (lo cual tendría sentido), y eliminamos el resto de variables, vemos que realmente no tenemos valores ausentes. Esta tendencia de, mediante una sola operación de imputación razonable, arreglar los valores ausentes, es recurrente en el dataset.
+
+  A continuación se estudian todas aquellas variables que tienen relación con el nucleo familiar
+  
+  (EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,PAREJA,NUCLEOFAM, NHIJOMENOR,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO)
+  
+  Todas ellas estan relacionadas ya que la información que contienen varía ligeramente, sin embargo, observamos que si los individuos que contestaron el cuestionario en el apartado de PAREJA establecieron que "No convive en pareja", hacía que se quedara sin contestar, pues no se puede contestar algo sobre el EC de la pareja sin tenerla.
+  
+  Para las variables **NUCLEOFAM**, **NHIJOPAR** y **NHIJO**, se han tenido que realizar imputaciones de datos, pues en principio no hay ningún criterio conocido por el que esos datos no estuvieran presentes. Se buscaron variables que contengan información muy similar o igual a la información que recoge la variable. Al tener el dataset una gran cantidad de variables con cambios marginales entre una y otra, podemos imputar datos de una variable a otra de forma relativamente razonable, además el número de datos perdidos en este caso es relativamente pequeño (no más de un 3% de NA reales de esas variables).
+  
+  La lista completa de relaciones se puede visualizar en el código.
+
+```{r, echo = FALSE, results='hide'}
+df_EC <- df %>% 
+select(EC,NHIJOME_NUCLEO,NHIJO_NUCLEO,SITUNUCLEOFAM,ID_VIV,PAREJA,NUCLEOFAM, NHIJOMENOR)  
+
+  sapply(df_EC, function(x) {mean(is.na(x))})
+  
+    df <- df %>%
+  mutate(
+    NHIJOME_NUCLEO = ifelse(is.na(NHIJOME_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJO_NUCLEO = ifelse(is.na(NHIJO_NUCLEO) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJO_NUCLEO),
+    SITUNUCLEOFAM = ifelse(is.na(SITUNUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", SITUNUCLEOFAM),
+    NHIJOMENOR = ifelse(is.na(NHIJOMENOR) & PAREJA == "No convive en pareja", "Sin hijos/Sin pareja", NHIJOME_NUCLEO),
+    NHIJOMENOR = ifelse(NHIJOME_NUCLEO == "Sin hijos/Sin pareja", NHIJOME_NUCLEO, NHIJOMENOR), 
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(PAREJA == "No convive en pareja", "Sin pareja", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge de distinto sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho de distinto sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con pareja de hecho del mismo sexo", "Pareja de hecho con o sin hijos, con o sin otras personas", NUCLEOFAM),
+    NUCLEOFAM = ifelse(is.na(NUCLEOFAM) & PAREJA == "Convive con cónyuge del mismo sexo", "Pareja casada con o sin hijos, con o sin otras personas", NUCLEOFAM)
+  )
+    
+df_EC_2 <- df %>% 
+  select(EC,ECPAR,NACPAR,SEXOPAR,HIJOSDEAMBOS,NHIJOPAR,NHIJO_NUCLEO,NHIJO,ID_VIV,PAREJA)
+
+  sapply(df_EC_2, function(x) {mean(is.na(x))})
+
+  
+   df <- df %>%
+  mutate(
+    ECPAR = ifelse(is.na(ECPAR), "Sin pareja", ECPAR),
+    NACPAR = ifelse(is.na(NACPAR), "Sin pareja", NACPAR),
+    HIJOSDEAMBOS = ifelse(is.na(HIJOSDEAMBOS), "Sin pareja", HIJOSDEAMBOS),
+    SEXOPAR = ifelse(is.na(SEXOPAR), "Sin pareja", SEXOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo sin hijos", 0, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos todos comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Conviviendo con hijos no comunes", NHIJO_NUCLEO, NHIJOPAR),
+    NHIJOPAR = ifelse(HIJOSDEAMBOS == "Sin pareja", "Sin pareja", NHIJOPAR),
+    NHIJO = ifelse(NHIJO_NUCLEO == "Sin hijos/Sin pareja", "Sin hijos/Sin pareja",NHIJO),
+    NHIJO = ifelse(is.na(NHIJO), NHIJO_NUCLEO,NHIJO)
+    )
+```
+
+  Seguidamente podemos ver que las variables **ESTUDIOS** y **RELACT** también tienen valores ausentes relacionados. Estas preguntas del cuestionario solo se tomaron a los mayores de 16 años, por tanto si filtramos el df por edad, vemos que los NA's desaparecen.
+  
+  De forma análoga, aquellos que contestaron que no se encontraban "Trabajando a tiempo completo" o "Trabajando a tiempo parcial", no correspondía que contestaran nada en el apartado de **OCUPA**, ya que no trabajan.
+
+```{r, echo = FALSE, results='hide'}
+df_EDAD <- df %>% 
+  select(ESTUDIOS,RELACT,EDAD) %>% 
+  dplyr::filter(EDAD >= 16)
+
+  sapply(df_EDAD, function(x) {mean(is.na(x))})
+  
+  df <- df %>%
+  mutate(
+    RELACT = ifelse(is.na(RELACT), "No procede", RELACT),
+    ESTUDIOS = ifelse(is.na(ESTUDIOS), "Menor de 16 años", ESTUDIOS)
+  )
+  
+df_OCUPADOS <- df %>% 
+  select(OCUPA,RELACT) %>% 
+  dplyr::filter((RELACT == "Trabajando a tiempo completo" | RELACT == "Trabajando a tiempo parcial"))
+
+  sapply(df_OCUPADOS, function(x) {mean(is.na(x)) 
+})
+  
+    df <- df %>%
+  mutate(
+    OCUPA = ifelse(is.na(OCUPA), "No trabaja", OCUPA)
+  )
+```
+
+  Respecto a las variables relacionadas con el **lugar de nacimiento** y la **nacionalidad**, hay apartados en los que correspondía responder en función o no de la nacionalidad del encuestado, por ejemplo, los ciudadanos nacidos en España no debían contestar cuándo llegaron a España o cuándo obtuvieron la nacionalidad. Qué valores ausentes había y cómo se han imputado se puede ver en el código abajo:
+
+```{r, echo = FALSE, results='hide'}
+df_extranjeros <- df %>% 
+  select(EDADFLLEG,TPOFLLEG,NACIM,TPOFNACESP,NAC) 
+
+
+  sapply(df_extranjeros, function(x) {mean(is.na(x))
+})
+  
+  df <- df %>%
+  mutate(
+    EDADFLLEG = ifelse(is.na(EDADFLLEG), "Nacido en España", EDADFLLEG),
+    TPOFLLEG = ifelse(is.na(TPOFLLEG), "Nacido en España", TPOFLLEG),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española", "Nacionalidad española de nacimiento", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "No tiene nacionalidad española", "No tiene nacionalidad española", TPOFNACESP),
+    TPOFNACESP = ifelse(is.na(TPOFNACESP) & NAC == "Española y otras", "Nacionalidad española de nacimiento", TPOFNACESP)
+  )
+
+df_NACIONALIDAD <- df %>% 
+select(NACNACIMESP,NAC) %>% 
+  dplyr::filter(!(NAC == "No tiene nacionalidad española"))
+
+  sapply(df_NACIONALIDAD, function(x) {mean(is.na(x)) 
+})
+  
+   df <- df %>%
+  mutate(
+    NACNACIMESP = ifelse(is.na(NACNACIMESP), "No tiene nacionalidad española", NACNACIMESP),
+  )
+```
+
+  Finalmente quedaría la variable **ANEDI**, que solo registra el año de construcción del edificio a partir del año 2000. Por tanto, todo edificio construido previamente no se incluyó. Sin embargo, tenemos variables que tienen esta información y más, por lo que al ser una variable que apenas aporta información relevante, podemos eliminarla.
+
+```{r, echo = FALSE, results='hide'}
+df_CONSTRUCCION <- df %>% 
+  select(ANOANEDI,ANEDI) %>% 
+  dplyr::filter(ANEDI == "Después del año 2000")
+
+  sapply(df_CONSTRUCCION, function(x) {mean(is.na(x)) 
+})
+  
+table(df$FEDI,df$ANEDI)
+
+df <- df %>% 
+  select(-ANOANEDI & -ANEDI)
+
+df_num <- df_num %>% 
+  select(-ANOANEDI & -ANEDI)
+```
+
+  Una vez hecho todo el proceso de busqueda de datos perdidos e imputación, podemos ver como para nuestro conjunto de datos ya no tenemos datos ausentes, de hecho en ningún momento tuvimos (salvo en algún caso muy puntual). Sin embargo, era necesario añadir nuevas categorías dentro de las variables que capturasen esa información implícita.
+  
+  El motivo por el que no se han podido imputar al df numérico todos esos NA's es porque ningún tipo de imputación numérica hubiera sido realmente cierta, y hubiera sesgado los verdaderos valores del conjunto. Un ejemplo ilustrativo es la edad de llegada a España, para un ciudadano nacido en España podríamos imputar el valor 0, sin embargo, esto se interpretaría como: "Ha llegado hace 0 años", lo cual sesgaría la distribución de años hacía 0, pues la mayoría de personas que contestó la encuesta eran de nacionalidad española.
+  
+  Este caso es el mismo para todas las variables con valores ausentes, por lo tanto, para no hacer un posterior análisis erroneo, es importante realizar un filtrado correcto de los valores ausentes antes de realizar cálculos numéricos. Primero, porque si no R no será capaz de realizar cálculos con datos ausentes, pero segundo, y más importante, porque al ser NA's donde no se pueden imputar datos, se nos esta indicando implícitamente que no debemos utilizar más datos de los que hay, ya que si no estaríamos contestando preguntas con información de sujetos que no tienen nada que ver con la misma.
+
+```{r}
+NA_analisis <- sapply(df, function(x) {mean(is.na(x)) * 100})
+NA_analisis
+```
+
+### Cambios de tipo de variables
+
+  Como mencionamos anteriormente, vamos a cambiar las variables *character* a *factor*, no lo habiámos hecho antes por la imputación de valores que hemos hecho en el apartado anterior, de esta forma podemos ver cuantos levels tenemos para cada variable con un simple vistazo a la función str.
+
+```{r, warning = F, results='hide'}
+df <- df |> 
+  mutate_if(is.character, factor) 
+
+df_num <- df_num |> 
+  mutate_if(is.character, factor)
+
+str(df)
+```
+
+  Analizando los levels de las variables factor, nos encontramos que para las variables relacionadas con paises, aparecen levels con código "966" y "555", que no aparecen en los diccionarios proporcionados en el INE y que por tanto se han debido de tratar de errores de escritura, por tanto vamos a filtrarlos.
+
+```{r, echo = FALSE, results='hide'}
+df <- df %>% 
+  dplyr::filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  droplevels()
+
+df_num <- df_num %>% 
+  dplyr::filter(PNACIMT != "966" & PNACT != "555" & PNACIMPADRET != "966" & PNACIMMADRET != "966") %>% 
+  droplevels()
+```
+
+### Cambio nombre variables
+
+  Cambiamos también de nombre algunas variables para mejorar la comprensión de las mismas a la hora de leer el set de datos. Algunos de estos cambios son IDQ_PV -> PROVINCIA o EDADFLLEG -> EDAD_LLEG_ESP.
+
+```{r, echo = F}
+df <- df %>% 
+  rename(
+    PROVINCIA = IDQ_PV,
+    F_CONS_EDI = FEDI,
+    PERS_HOGAR = TAMTOHO,
+    NAC_HO = NACHO,
+    PAIS_NACIM = PNACIMT,
+    EDAD_LLEG_ESP = EDADFLLEG,
+    TPO_LLEG_ESP =TPOFLLEG,
+    PAIS_NAC = PNACT,
+    PAIS_NAC_NACIM = PNACNACIMT,
+    TPO_NAC_ESP = TPOFNACESP,
+    PAIS_NACIM_PADRE = PNACIMPADRET,
+    PAIS_NACIM_MADRE = PNACIMMADRET,
+    RELAC_MIEMBROS = P01,
+    ACTIVIDAD = RELACT,
+)
+
+df_num <- df_num %>% 
+  rename(
+    PROVINCIA = IDQ_PV,
+    F_CONS_EDI = FEDI,
+    PERS_HOGAR = TAMTOHO,
+    NAC_HO = NACHO,
+    PAIS_NACIM = PNACIMT,
+    EDAD_LLEG_ESP = EDADFLLEG,
+    TPO_LLEG_ESP =TPOFLLEG,
+    PAIS_NAC = PNACT,
+    PAIS_NAC_NACIM = PNACNACIMT,
+    TPO_NAC_ESP = TPOFNACESP,
+    PAIS_NACIM_PADRE = PNACIMPADRET,
+    PAIS_NACIM_MADRE = PNACIMMADRET,
+    RELAC_MIEMBROS = P01,
+    ACTIVIDAD = RELACT,
+)
+```
+
+
+### Recodificación de variables
+
+  En un inicio, nuestro dataset presentaba un tipo de codificación ya establecido. El problema era la dificultad de interpretar el dataset y sus posibles relaciones, entonces se decidió descodificar primero las variables para poder entender qué significaba cada variable de forma sencilla. Con esto vimos que el análisis de hecho se podía realizar de forma más intuitiva y decidimos que nuestras variables podían permanecer en formato *character*, sin embargo nos vimos en la necesidad de mantener un dataset con principalmente variables numéricas con la que se pudiera eventualmente modelizar por ejemplo.
+
+  Una vez investigado, observamos que la codificación de algunas variables no era la adecuada por el tipo de variable categórica. Las variables categóricas se dividen en dos grupos: ordinales y cardinales. En las variables categóricas ordinales, se pueden codificar acorde a un orden númerico, ya que existe una jerarquia. a > b > c. En las variables cardinales, por el contrario, no se aprecia un orden entre las variables: Andalucia !> Aragón. Esto es importante porque para cada caso las técnicas de codificación son distintas. Las variables categóricas ordinales estan bien codificadas en el dataset, las categóricas ordinales por el contrario han requerido una recodificación, nosotros hemos utilizado "One-hot encoding", también conocido como convertir a "dummy variables" que basicamente es un tipo de codificación binaria. 1 es que la variable toma un valor, 0 que no lo toma.
+
+Como variables ordinales en este caso podemos considerar a **TAMAÑO**, **ESTUDIOS**, **TIPOVIV**, **FEDI**, mientras que el resto son cardinales.
+
+```{r, warning=FALSE}
+columnas_dummy <- c("REGVI","NAC_HO","SEXO","EC","NACIM","COCINA","NAC",
+"NACNACIMESP","NACIMPADRE","NACIMMADRE","OCUPA","PAREJA","SEXOPAR","NACPAR",
+"ECPAR","HIJOSDEAMBOS")
+
+df_num_fctr <- df_num %>% 
+  select(all_of(columnas_dummy)) %>% 
+    mutate_all(factor)
+
+dummy <- dummyVars(paste("~", paste(columnas_dummy,collapse = " + ")), 
+                   data = df_num_fctr)
+
+df_dummies <- data.frame(predict(dummy, newdata = df_num_fctr))
+
+df_merged <- cbind(df_num, df_dummies)
+
+df_merged <- df_merged %>% 
+  select(!(columnas_dummy))
+
+df <- df %>% 
+  mutate(METROSVI = as.numeric(METROSVI))
+```
+
+### Detección de anomalías
+
+  Durante el proceso de detección de anomalías nos hemos servido de una serie de principios muy básicos. Al estar nuestro conjunto de datos repleto de datos categóricos, es complicado determinar que supone una anomalía y que no, en este caso nos hemos ceñido a las variables que mediante el sentido común se puede determinar que constituyen anomalías del conjunto, se han utilizado counts sobre las habitaciones del hogar para detectar posibles valores fuera de lo normal, ya que si aplicaramos este principio sobre otras variables como **NAC** o **EC** podriamos pensar que "No ser español" o "Viudo/a" podrían ser anomalías y eliminarlas del conjunto nos quitaría riqueza e información relevante del conjunto.
+
+```{r, results='hide', echo = FALSE}
+str(df)
+
+df %>% 
+  count(DORMITORIOS)
+df %>% 
+  count(ASEOS)
+df %>% 
+  count(COMEDORES)
+df %>% 
+  count(TRASTEROS)
+df %>% 
+  count(OTRASHAB)
+
+df_filtrado <- df %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% dplyr::filter(NPV == 1)
+
+df %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2)) %>% dplyr::filter(NPV == 1) %>% count(TIPOVIV)
+```
+
+### Detección de outliers
+
+  Apenas tenemos dos variables puramente numéricas que podamos utilizar de forma efectiva en la detección de outliers, **METROSVI** y **DENSIDADVI**, para la detección de outliers podemos utilizar técnicas visuales simples como un Boxplot o podemos utilizar formulas como 3sigma, Hampel, Boxplot entre otras opciones. En este caso hemos usado varios enfoques, primero visualizar nuestros conjuntos para ver si tenían o no outliers y luego aplicar los métodos de detección de outliers. El criterio que se aplica para determinar la elección del método es unicamente observar que datos nos indica y utilizar el sentido común de que nos parece o no outlier, sin embargo este criterio es subjetivo y cualquiera podría elegir un criterio diferente al utilizado aquí. En el caso de **METROSVI**, se ha decidido utilizar el método 3sigma dado que el resto de métodos resultan demasaidos restrictivos (outliers a partir de $180 m^2$), y para **DENSIDADVI** se ha decidido utilizar el método de boxplot ya que otros métodos, como 3sigma, ofrecen límites demasiado laxos.
+
+```{r, echo = F, warning = FALSE}
+deteccion_outliers <- function(data){
+
+n<-length(data)
+nMiss<-sum(is.na(data)==TRUE)
+
+# p5-p95
+lowLim<-quantile(data,0.05)
+upLim<-quantile(data,0.95)
+minNom<-min(data[which(data>lowLim)])
+maxNom<-max(data[which(data<upLim)])
+nOut<-length(which(data<lowLim | data>upLim))
+
+outliers<-data.frame(method='p5-p95', n=n, nMiss=nMiss, nOut=nOut, lowLim=lowLim,upLim=upLim,minNom=minNom,maxNom=maxNom)
+
+# 3signa
+umbral3s<-mean(data)+3*sd(data)
+
+nOut3s<-length(data[abs(data)>umbral3s])
+lowLim3s<-mean(data)-3*sd(data)
+upLim3s<-mean(data)+3*sd(data)
+minNom<-min(data[(which(data>=lowLim3s))])
+maxNom<-max(data[(which(data<=upLim3s))])
+
+outliers<-rbind(outliers,data.frame(method='tresSigma', n=n, nMiss=nMiss, nOut=nOut3s, lowLim=lowLim3s,upLim=upLim3s,minNom=minNom,maxNom=maxNom))
+
+# Hampel
+
+MADM<-1.4826*median(abs(data-median(data))) # Se puede calcular como mad(data)
+umbralH<-median(data)+3*MADM
+nOutH<-length(data[abs(data)>umbralH])
+lowLimH<-median(data)-3*MADM
+upLimH<-median(data)+3*MADM
+minNom<-min(data[(which(data>=lowLimH))])
+maxNom<-max(data[(which(data<=upLimH))])
+outliers<-rbind(outliers,data.frame(method='Hampel', n=n, nMiss=nMiss, nOut=nOutH, lowLim=lowLimH,upLim=upLimH,minNom=minNom,maxNom=maxNom))
+
+# Boxplot
+
+Q3Q1<-IQR(data)
+Q3<-quantile(data,probs = 0.75)%>%as.numeric
+Q1<-quantile(data,probs = 0.25)%>%as.numeric
+umbralSup<-Q3+1.5*Q3Q1
+umbralInf<-Q1-1.5*Q3Q1
+
+nOutB<-length(data[data>umbralSup |data<umbralInf])
+lowLimB<-umbralInf
+upLimB<-umbralSup
+minNom<-min(data[(which(data>=lowLimB))])
+maxNom<-max(data[(which(data<=upLimB))])
+outliers<-rbind(outliers,data.frame(method='ReglaBoxplot', n=n, nMiss=nMiss, nOut=nOutB, lowLim=lowLimB,upLim=upLimB,minNom=minNom,maxNom=maxNom))
+
+return(outliers)
+
+}
+ggplot(df_filtrado, aes(y = METROSVI)) + geom_boxplot() + labs(y = "Superficie vivienda / m²", title = "Boxplot sobre la superficie de las viviendas")
+
+
+cat("El resultado para la detección de outliers en la variable de m² de las viviendas es: \n")
+deteccion_outliers(df_filtrado$METROSVI)
+#Mas razonable acorde a tres sigma
+
+ggplot(df_filtrado, aes(y = DENSIDADVI)) + geom_boxplot() + labs(y = "Densidad vivienda / 1/m²", title = "Boxplot sobre la densidad de las viviendas")
+
+cat("El resultado para la detección de outliers en la variable de m² por persona es: \n")
+deteccion_outliers(df_filtrado$DENSIDADVI)
+#Mas razonable acorde a boxplot
+
+
+df_filtrado <- df %>%
+dplyr::filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_outliers <- df %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+
+df_filtrado_num <- df_merged %>%
+dplyr::filter(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05)
+
+df_filtrado_num_outliers <- df_merged %>%
+dplyr::filter(!(DORMITORIOS <= 8 & ASEOS <= 4 & TRASTEROS <= 4 & COMEDORES <= 3 & HABVI <= 10 & OTRASHAB <= 2 & METROSVI <= 270 & DENSIDADVI <= 120.05))
+
+ggplot(df_filtrado, aes(x = METROSVI)) + geom_histogram(bins = 29) + labs(x = "Superficie vivienda / m²", title = "Histograma sobre la superficie de las viviendas")
+
+
+ggplot(df_filtrado, aes(x = DENSIDADVI)) + geom_histogram(bins = 29) + labs(x = "Densidad vivienda / 1/m²", title = "Histograma sobre la densidad de las viviendas")
+```
+
+  Hemos decidido mantener el dataframe que contiene outliers ya que podría ser interesante si alguien quisiera observar si existen diferencias en el resto de variables del conjunto entre el conjunto de datos filtrado de outliers y anomalías y el conjunto que solo tiene estos valores anormales. Para este proyecto sin embargo no vamos a analizar este punto.
+
+### Posibles preguntas a plantear
+
+1. ¿El tamaño de la provincia afecta a las carácteristicas del hogar?
+
+2. ¿Afecta tu nivel de estudios en donde vives?
+
+3. ¿Tu estado civil tiene relación con tu hogar?
+
+4. ¿Existen diferencias entre nacionales y extranjeros en nivel de estudios, ocupación, hijos, tamaño de población o tipo de vivienda?
+
+5. ¿Está correlacionada la edad con tu vivienda?
+
+6. ¿Existe alguna diferencia entre los extranjeros nacionalizados y los no nacionalizados?
+
+## Casos a estudiar
+
+### Análisis univariante
+
+La mayoría de las variables con las que estamos trabajando son categóricas, variables numéricas solamente tenemos _DENSIDADVI_ y _METROSVI_. Calcularemos algunos de los estadísticos más comunes para _METROSVI_, ya que nos podrán ayudar a una mejor comprensión de los datos:
+
+```{r estadisticos, echo=FALSE}
+cat("La media de metros cuadrados por vivienda es:", mean(df$METROSVI))
+cat("La mediana de metros cuadrados por vivienda es:", median(df$METROSVI))
+cat("La desviación típica de los metros cuadrados por vivienda es:", sd(df$METROSVI))
+```
+Que la mediana sea menor que la media quiere decir que hay más viviendas con menos metros cuadrados, y las casas con más metros cuadrados, que aumentan el valor de la media, su diferencia de metros debe ser significativa. 
+
+En este caso tenemos una desviación típica de 62.85, lo cual sugiere que los tamaños de las viviendas tienden a alejarse de la media en una cantidad considerable, lo que podría deberse a la presencia de viviendas más grandes y más pequeñas en el conjunto de datos.
+
+En el análisis bivariante estudiaremos como las variables _DENSIDADVI_ y _METROSVI_ están correlacionadas. Esto se debe a que la variable _DENSIDAVI_ la hemos obtenido del cociente entre _METROSVI_ y _PERS_HOGAR_.
+
+Para algunas de las variables categóricas lo que haremos será un diagrama de barras para ver mejor como se distribuyen las diferentes categorías:
+
+Analizaremos los diagramas de alguna de las variables (en total tenemos 53 variables categóricas, no podemos analizarlas todas): _TIPOVIV_, _NACIM_, _SEXO_, _EC_ . Los resultados que observemos nos pueden ser de utilidad en el análisis bivariante:
+
+```{r univar_catego, echo=FALSE}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea%>%mutate(TIPOVIV = gsub("Edificio destinado a otros usos \\(e incluye una o más viviendas convencionales\\)", "Otros usos", TIPOVIV))%>%mutate(NACIM = gsub("Fuera de España", "Fuera", NACIM))%>%mutate(TIPOVIV = gsub("Edificio entre 3 y 9 viviendas", "Entre 3 y 9 \nviviendas", TIPOVIV))%>%mutate(TIPOVIV = gsub("Edificio con 10 o más viviendas", "10 o más \nviviendas", TIPOVIV))%>%mutate(TIPOVIV = gsub("Unifamiliar adosada o pareada", "Unifamiliar \nadosada", TIPOVIV))%>%mutate(TIPOVIV = gsub("Edificio con dos viviendas", "Dos \nviviendas", TIPOVIV))%>%mutate(TIPOVIV = gsub("Unifamiliar independiente", "Unifamiliar \nindepend", TIPOVIV))
+
+
+plot_grid(
+  ggplot(df_saltolinea, aes(x=TIPOVIV))+geom_bar(aes(fill=TIPOVIV))+labs(
+       x = NULL,
+       y = NULL, fill = "Tipo de vivienda")+theme_minimal() +theme(axis.text.x = element_blank()),
+  
+  ggplot(df_saltolinea, aes(x=NACIM))+geom_bar(aes(fill=NACIM))+labs(
+       x = NULL,
+       y = NULL, fill = "Lugar de nacimiento")+theme_minimal() +theme(axis.text.x = element_blank()),
+  
+  ggplot(df_saltolinea, aes(x=SEXO))+geom_bar(aes(fill=SEXO))+labs(
+       x = NULL,
+       y = NULL, fill = "Sexo")+theme_minimal() +theme(axis.text.x = element_blank()),
+  
+  ggplot(df_saltolinea, aes(x=EC))+geom_bar(aes(fill=EC))+labs(
+       x = NULL,
+       y = NULL, fill = "Estado civil")+theme_minimal() +theme(axis.text.x = element_blank()),
+  nrow = 2, ncol = 2
+) 
+```
+Sobre el tipo de vivienda, observamos claramente que predominan los edificios de 10 viviendas o más, aproximadamente la mitad de las personas viven en este tipo de edificios. Los edificios entre 3 y 9 viviendas y los dos tipos de unifamiliares aparecen en cantidades similares y ya en menos número los edificios de dos viviendas y los edificios para otros usos.
+Para la variable del lugar de nacimiento, observamos que de los encuestados la mayoria nacieron en España, casi 25.000 personas nacieron fuera de España de un total de más de 220.000.
+Observamos paridad entre los encuestado/as, aproximadamente la mitad son hombre y la otra mitad mujeres.
+Para el estado civil tenemos dos grandes grupos: los casado/as y soltero/as. Aproximadamente cada grupo lo conforman casi 100.000 personas. Las personas restantes pertenecen a divorciado/as, separado/as, viudo/as en proporciones similares.
+
+### Análisis bivariante
+
+**1. ¿El tamaño de la provincia afecta a los metros de la vivienda?**
+
+Para analizar si el tamaño de la provincia tiene alguna relación con los metros de la vivienda usaremos un boxplot. Hemos cambiado la escala a la logarítmica ya que, al haber valores muy grandes, no permitían observar bien el gráfico:
+
+```{r boxplot_tamano_metros, echo=FALSE}
+df_saltolinea <- df_filtrado
+
+df_saltolinea <- df_saltolinea%>%mutate(TAMANO = gsub("(habitantes)", "", TAMANO))
+#En primer lugar transformamos a factor la variable tamano porque nos sera mas facil trabajar con ella de esta forma
+
+lev<-as.vector(unique(df_saltolinea$TAMANO))
+lev <- lev[c(11, 10, 5, 8, 3, 1, 6, 4, 7, 2, 9)]
+
+df_saltolinea$TAMANO <- factor(df_saltolinea$TAMANO, levels = lev)
+
+ggplot(df_saltolinea, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+ geom_boxplot()+ stat_boxplot (geom='errorbar', linetype=1, width=0.5) + scale_y_log10()+labs(title = "Superficie de vivienda según el tamaño de la provincia",
+       x = NULL,
+       y = "Superficie de la vivienda / m²", fill= "Tamaño por número \n de habitantes") +
+  theme_minimal()+ theme(axis.text.x = element_blank())
+
+cat("La mediana para las poblaciones de menos de 101 habitantes es", median(df$METROSVI[df$TAMANO=="Menos de 101 habitantes"]))
+cat("La mediana para las poblaciones de 500.001 o más habitantes es", median(df$METROSVI[df$TAMANO=="500.001 o más habitantes"]))
+
+big1 <- quantile(df$METROSVI[df$TAMANO=="500.001 o más habitantes"], 0.75)+1.5*(quantile(df$METROSVI[df$TAMANO=="500.001 o más habitantes"], 0.75)-quantile(df$METROSVI[df$TAMANO=="500.001 o más habitantes"], 0.25))
+
+big2 <- quantile(df$METROSVI[df$TAMANO=="Menos de 101 habitantes"], 0.75)+1.5*(quantile(df$METROSVI[df$TAMANO=="Menos de 101 habitantes"], 0.75)-quantile(df$METROSVI[df$TAMANO=="Menos de 101 habitantes"], 0.25))
+
+rm(df_saltolinea)
+```
+
+Observando el boxplot vemos como los metros de las viviendas no están muy relacionados con el número de habitantes por $m^2$, los valores del IQR oscilan entre unos $80m^2$ y unos $150m^2$ de forma aproximada, independientemente del tamaño de la provincia. 
+
+Para los outliers haremos una diferencia: los que se encuentran por debajo de $Q1-1.5\cdot IQR$, y los que se encuentran por encima de $Q3+1.5\cdot IQR$. Para todas las categorías considera, de forma general, outliers las viviendas con menos de $60m^2$. En cambio para los que se encuentran por encima de $Q3+1.5\cdot IQR$ hay una división, para las categorías de más de $20.000$ habitantes por $m^2$ considera outliers las viviendas de más de $150m^2$ o un poco más ($Q3+1.5\cdot IQR$ es 148 para 500.001 o más habitantes), en cambio para las de menos de 20.000 habitantes por $m^2$ son las de $250m^2$ aproximadamente ($Q3+1.5\cdot IQR$ es 240 para menos de 101 habitantes). También sobre los outliers, salvo la categoría de "Menos de 101 habitantes", el resto presentan bastantes outliers, y cuanto mayor es el número de habitantes, mayor es el número de outliers.
+
+En último lugar hablaremos sobre la mediana, que analizando el boxplot podemos ver como decrece cuando aumenta el tamaño de la provincia, por lo que cuanto mayor es el número de habitantes por $m^2$, menos metros suelen tener las vivendas. Sin embargo vemos que esta diferencia no es tan grande, la diferencia se estima en unos $70m^2$.
+
+**2. ¿Afecta la actividad que desempeñas con el régimen de la vivienda?**
+
+Analizaremos si existe alguna relación entre la actividad que realizan los residentes y el régimen de la vivienda. Como en este caso estamos trabajando con dos variables categóricas, usaremos un mosaico para ver la relación entre estas dos variables:
+
+```{r mosaico_act_regvi, echo=FALSE, warning = FALSE}
+df_saltolinea <- df_filtrado
+
+df_saltolinea <- df_saltolinea%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia por compra, \ntotalmente pagada, \nheredada o donada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas gratis o bajo precio", REGVI))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo parcial", "Trabajando a \ntiempo parcial", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Trabajando a tiempo completo", "Trabajando a \ntiempo completo", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Dedicado a las labores de mi hogar", "Labores de mi hogar", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Jubilado, prejubilado, retirado de una actividad económica previa", "Jubilado, prejubilado, \nretirado", ACTIVIDAD))%>%mutate(ACTIVIDAD = gsub("Incapacitado para trabajar", "Incapacitado \npara trabajar" , ACTIVIDAD))
+  
+
+
+# Crear el gráfico de mosaico con ggplot2 y ggmosaic
+ggplot(df_saltolinea)+geom_mosaic(aes(x=product(REGVI, ACTIVIDAD), fill=REGVI))+labs(title = "Mosaico de actividades según el régimen de vivienda",
+       x = "Actividades",
+       y = "", fill = "Régimen de vivienda")+theme_minimal()+ theme(axis.text.x = element_text(angle = 50, vjust = 1.15, hjust=1), axis.text.y = element_blank())
+rm(df_saltolinea)
+```
+
+Para que fuera más fácil de comprender esta gráfica, hemos asignado colores según el régimen de vivienda. 
+
+A simple vista los casos de casas cedidas gratis o bajo precio por otro hogar, la empresa... ocupan el menor porcentaje de esta variable, independientemente de la actividad que desempeñen los residentes. Podemos destacar que tanto en los residentes jubilados, prejubilados o retirados de una actividad económica previa como en los residentes que desempeñan labores del hogar, con gran diferencia, son los grupos con mayor porcentaje de viviendas propias por compra, totalmente pagada, heredada o donada, ocupando este tipo de régimen de vivienda casi el total de las diferentes categorias. En el caso "no procede" sucede que el mayor porcentaje son las residencias propias por compra con hipoteca, esto se debe a que el tipo de personas que conforman este grupo están formadas por niños y estudiantes parados, entre otros, y cómo seguramente vivan en casas de los adultos que los tutoricen, ese es el motivo de esta distribución. En el resto de actividades, las mayoritarias son las viviendas propias por compra con hipoteca y las viviendas propias por compra, totalmente pagada, heredada o donada, ambas en un porcentaje bastante similar.
+
+**3. ¿Tu estado civil tiene relación con tu hogar?**
+
+Estudiaremos si el estado civil tiene relación con el número de personas en el hogar y con el número de dormitorios. En este caso también estamos trabajando con dos variables categóricas, y graficaremos unos diagramas de barras:
+
+```{r barras_ec, echo=FALSE}
+### primeramente hacemos factor la variable de numero de habitaciones, dormitorios y personas por hogar
+df_saltolinea <- df_filtrado
+
+df_saltolinea$HABVI <- factor(df_saltolinea$HABVI, levels = sort(unique(df_saltolinea$HABVI)))
+
+df_saltolinea$DORMITORIOS <- factor(df_saltolinea$DORMITORIOS, levels = sort(unique(df_saltolinea$DORMITORIOS)))
+
+df_saltolinea$PERS_HOGAR <- factor(df_saltolinea$PERS_HOGAR, levels = sort(unique(df_saltolinea$PERS_HOGAR)))
+
+
+plot_grid(
+  ggplot(df_saltolinea, aes(x=PERS_HOGAR))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Estado civil y número de personas por hogar",
+       x = "Personas por hogar",
+       y = "", fill = "Estado Civil")+theme_minimal(),
+  ggplot(df_saltolinea, aes(x=DORMITORIOS))+ geom_bar(aes(fill = EC), width = 0.5)+scale_y_log10()+labs(title = "Estado civil y número de dormitorios por hogar",
+       x = "Dormitorios por hogar",
+       y = "", fill = "Estado Civil")+theme_minimal(),
+  ncol=1, nrow=2
+)
+
+rm(df_saltolinea)
+```
+
+Para la primera gráfica observamos que, sin importar el número de miembros en un hogar, siempre tenemos representación de soltero/as y casado/as. Esto se puede deber a que hay matrimonios pueden tener bastantes hijos y/o además vivir junto con más familiares, por ello tienen representación hasta para un elevado número de personas por hogar. En el caso de soltero/as, compartir piso puede ser una opción y en algunos casos puede ser con muchas personas, por ello puede estar representado hasta para tantos residentes. Para el resto de estados civiles, viudo/a, separado/a, divorciado/a, tenemos representación hasta para 9 personas por vivienda. Estos 3 casos tienen en común que, almenos, se dejaría de convivir con una persona y ese podría ser el motivo por el cual el número de personas por casa sea menor. Para un número pequeño de residentes observamos que las proporciones entre los diferentes estados civiles son bastante similares, pero conforme aumenta el número de residentes, las proporciones de viudo/a, separado/a, divorciado/a son las que disminuyen más rápidamente. 
+
+Puede llamarnos la atención que, aunque sea el de menor porcentaje, haya casado/as que vivan solo/as. 
+
+Entre 0 y 5 dormitorios vemos que las proporciones entre las diferentes categorias son aproximadamente las mismas, siendo los casado/as y soltero/as los más númerosas. A partir de 6 dormitorios esta predominancia se hace más visibles, desapareciendo algunas categorias como  divorciado/as y separado/s para valores más elevados.
+
+**4. ¿Existen diferencias entre nacionales y extranjeros en nivel de estudios, ocupación, número de hijos o tipo de vivienda?**
+
+Primeramente, trataremos de representar cada variable con respecto a si son nacionales o no. Como para todos los casos ambas variables son categóricas tendremos que optar o por un diagrama de barras o por un mosaico. Para la variable **ESTUDIOS**:
+
+```{r mosaico_est, echo=FALSE}
+df_saltolinea <- df
+
+df_saltolinea <- df_saltolinea %>%
+  mutate(
+    ESTUDIOS = gsub("Llegó al último curso de ESO, EGB o Bachiller Elemental o tiene el Certificado de Escolaridad o de Estudios Primarios", "Llegó al último curso de ESO o similar", ESTUDIOS),
+    ESTUDIOS = gsub("Diplomatura universitaria, Arquitectura Técnica, Ingeniería Técnica o equivalente", "Diplomatura universitaria", ESTUDIOS),
+    ESTUDIOS = gsub("Fue a la escuela 5 años o más pero no llegó al último curso de la ESO, EGB o Bachiller Elemental", "Fue a la escuela 5 años o más", ESTUDIOS),
+    ESTUDIOS = gsub("FP grado medio, FP I, Oficialía Industrial o equivalente, Grado Medio de Música y Danza, Certificados de Escuelas Oficiales de Idiomas", "FP grado medio o equivalente", ESTUDIOS),
+    ESTUDIOS = gsub("Bachiller \\(LOE, LOGSE\\), BUP, Bachiller Superior, COU, PREU", "Bachiller o equivalente", ESTUDIOS),
+    ESTUDIOS = gsub("Master oficial universitario \\(a partir de 2006\\), Especialidades Médicas o análogos", "Master oficial universitario", ESTUDIOS),
+    ESTUDIOS = gsub("FP grado superior, FP II, Maestría industrial o equivalente", "FP grado superior o equivalente", ESTUDIOS),
+    ESTUDIOS = gsub("Sabe leer y escribir pero fue menos de 5 años a la escuela", "Sabe leer y escribir pero fue \nmenos de 5 años a la escuela", ESTUDIOS),
+    ESTUDIOS = gsub("Licenciatura, Arquitectura, Ingeniería o equivalente", "Licenciatura o equivalente", ESTUDIOS)
+  )%>%mutate(
+    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato indefinido", "Trabajador \ncontrato indef", OCUPA),
+    OCUPA = gsub("Asalariado o trabajador por cuenta ajena con contrato eventual o temporal", "Trabajador \ncontrato  temp", OCUPA),
+    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que no emplea a otras personas", "Empresario \nno emplea", OCUPA),
+    OCUPA = gsub("Empresario, profesional o trabajador por cuenta propia que emplea a otras personas", "Empresario \nemplea", OCUPA)
+    
+  )%>%mutate(REGVI = gsub("Propia por compra, totalmente pagada, heredada o donada", "Propia \npagada", REGVI))%>%mutate(REGVI = gsub("Cedidas gratis o bajo precio por otro hogar, la empresa...", "Cedidas \ngratis", REGVI))%>%mutate(REGVI = gsub("Propia por compra con hipotecas", "Propia con \nhipotecas", REGVI))%>%mutate(NHIJO = gsub("Sin hijos/Sin pareja", "Sin hijos/\nSin pareja", NHIJO))
+
+lev<-as.vector(unique(df$ESTUDIOS))
+lev <- lev[c(7, 10, 5, 1, 8, 6, 3, 11, 4, 9, 12, 13, 2)]
+
+df$ESTUDIOS <- factor(df$ESTUDIOS, levels = lev)
+
+
+ggplot(df_saltolinea)+geom_mosaic(aes(x=product(ESTUDIOS, NACIM), fill=ESTUDIOS))+labs(title = "Mosaico de estudios según si nacieron en España",
+       x = "Nacimiento en España",
+       y = "Estudios", fill = NULL)+theme_minimal()+ theme(axis.text.x = element_text(angle = 40, vjust = 1.2, hjust=1), axis.text.y = element_blank())
+```
+
+Del mosaico podemos deducir que de las personas que se recopilaron los datos la mayoria nacieron en España. Sobre las personas nacidas en España, el grupo predominante son los que llegaron al último curso de ESO o similar, esto se deberá seguramente a que como bien su nombre indica, Estudios Secundarios Obligatorios, en España son obligatorios. Le sigue el grupo *"Menores de 16 años"*, y aunque se les podría incluir en alguna otra categoria, este estudio ha decidido no incluirlos y considerarlos como casos a parte.  
+
+Comparando estos datos con el de las personas nacidas fuera de España, llegar al último curso de ESO o similar sigue siendo el grupo predominante, pero en est caso le sigue de cerca el de las personas que tienen bachiller o equivalentes, cosa que no sucede en el de las personas nacidas en España. El resto de categorias sí que están en proporciones similares tanto para nacido en España como para los que no. Destacar que los que aparecen en menor número son los que no saben leer o escribir, lo que poseen Máster oficial universitario, y los que tienen doctorado. Notamos que estas categorias representan los niveles más bajos y más altos de la educación, la gente que no ha recibido enseñanzas y la que ha alcanzado las titulaciones más elevadas. Tiene sentido que estas sean la de menor número, que pocas personas no sepan ni leer ni escribir es una buena señal del sistema educativo, ya que se pretende que todo el mundo tenga acceso a la educación y de hecho es obligatorio en España. Que pocas personas tengan máster o doctorado también tiene sentido, ya que son estudios que son difíciles de alcanzar y mucha gente pasa antes al mundo laboral.
+
+Hemos recogido en diagramas de barras cómo se distribuyen las variables **OCUPA** y **REGVI**  respecto a lugar de nacimiento:
+
+```{r barras_ocupa_regvi, echo=FALSE}
+plot_grid(
+  ggplot(df_saltolinea, aes(x=OCUPA))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama ocupación",
+       x = NULL,
+       y = NULL, fill = "Donde nacieron"),
+  
+  ggplot(df_saltolinea, aes(x=REGVI))+geom_bar(aes(fill=NACIM), position = "dodge")+theme_minimal() +theme(axis.text.x = element_text(angle = 80, vjust = 0.95, hjust=1))+labs(title = "Diagrama régimen de vivienda",
+       x = NULL,
+       y = NULL, fill = "Donde nacieron"),
+  ncol = 2, nrow = 1
+)
+```
+
+Primeramente analizaremos el diagrama de la ocupación. Sobre las personas nacidas en España, notamos que la mayoría de ellas no trabajan, casi 125.000,  siendo más del doble con respecto a la siguiente categoría más numerosa. Recordemos que la categoría "No trabja" está formada por las personas que en la variable **ACTIVIDAD** no Trabajaban ni a tiempo completo ni a tiempo parcial, por lo que estará formada por gente jubilada, en paro, estudiantes, personas con alguna incapacidad para trabajar, que se dediquen a las labores del hogar o otro tipo de inactividad, ese es el motivo de que sea tan numerosa.
+
+Para los nacidos fuera de España, como cuenta con menos muestras, en ninguna de las categorías se superan las 25.000 personas. Sin embargo si destaca que el mayor número se concentra en las que no trabajan,  seguido, con cifras similares, los asalariados o trabajadores en ambas categorías. Y con apenas representación quedan los empresarios. Que el mayor número de personas se encuentren las que no trabajan se debe al mismo motivo que para los nacidos en España.
+
+Que en ambas categorías haya pocos empresarios puede explicarse por el hecho de que emprender conlleva ciertos riesgos y requiere un capital que no todos pueden permitirse.
+
+En último lugar analizaremos el régimen de vivienda. Comparando los nacidos en España con los nacidos en el extrangeros notamos una clara diferencia: el primer grupo mayoritáriamente tiene una propiedad comprada pagada totalmente (o heredada o donada), en cambio para el segundo son viviendas alquiladas. Para los nacidos fuera de España una propiedad comprada pagada totalmente (o heredada o donada) pasa a una tercera posición. En ambos casos las casas cedidas gratis o por bajo precio son a las que acceden un menor número de personas y las propiedades compradas con hipoteca ocupan el segundo lugar en sus respectivas categorías, aunque evidentemente, en muy diferente proporción.
+
+Ahora pasaremos a calcular la tabla de contingencia de cada variable respecto a la de lugar de nacimiento y posteriormente calcular la correlación con el test chi-cuadrado.
+
+```{r, echo = FALSE, warning=FALSE, results='hide'}
+# vamos a escoger unas variables, las cuales queremos ver si tienen correlacion
+
+df_corr <- df%>%select(NACIM, ESTUDIOS, OCUPA, NHIJO, REGVI)
+
+# transformaremos a factores estas variables
+
+lev<-as.vector(unique(df_corr$ESTUDIOS))
+lev <- lev[c(7, 10, 5, 1, 8, 6, 3, 11, 4, 9, 12, 13, 2)]
+
+df_corr$NHIJO <- factor(df_corr$NHIJO, levels = sort(unique(df_corr$NHIJO)))
+df_corr$NACIM <- factor(df_corr$NACIM)
+df_corr$REGVI <- factor(df_corr$REGVI)
+df_corr$OCUPA <- factor(df_corr$OCUPA)
+df_corr$ESTUDIOS <- factor(df_corr$ESTUDIOS, levels = lev)
+
+
+# aquí haremos una tabla de contingencia para cada par, el lugar de nacimiento y
+# el resto de variables y veremos si estan relacionadas, lo haremos con el test chi-cuadrado
+
+tabla_contingencia <- table(df_corr$NACIM, df_corr$NHIJO)
+chisq.test(tabla_contingencia)
+
+tabla_contingencia <- table(df_corr$NACIM, df_corr$ESTUDIOS)
+chisq.test(tabla_contingencia)
+
+tabla_contingencia <- table(df_corr$NACIM, df_corr$OCUPA)
+chisq.test(tabla_contingencia)
+
+tabla_contingencia <- table(df_corr$NACIM, df_corr$REGVI)
+chisq.test(tabla_contingencia)
+
+tabla_contingencia <- table(df_corr$OCUPA, df_corr$REGVI)
+chisq.test(tabla_contingencia)
+
+rm(df_corr, tabla_contingencia, lev)
+```
+
+En los cuatro casos el p-valor es menor que $2.2e-16<0.05$, entonces rechazamos la hipotesis nula. En el caso del test chi-cuadrado la hipótesis nula es que no hay asociación entre las variables; son independientes. Al rechazarla entonces nos quedamos con la alternativa y determinamos que la variables no son independientes.
+
+Que el p-valor sea tan pequeño también se puede deber a que la proporción entre nacidos en España y fuera de ella está bastante descompensada.
+
+**5. ¿Está correlacionada la densidad de la vivienda con los metros?**
+
+```{r, echo = FALSE}
+cat("La correlación entre la densidad de la vivienda y los metros es ", cor(df$METROSVI, df$DENSIDADVI))
+```
+
+Notemos que 0.63 no es un número lo suficientemente grande como para indicar que las variables no están relacionadas linealmente, pero sí nos destaca que están ciertamente relacionadas.
+
+Ahora representaremos los metros de vivienda respecto a la densidad:
+
+```{r, echo = FALSE}
+df_filtrado$PERS_HOGAR <- as.numeric(df_filtrado$PERS_HOGAR)
+
+ggplot(df_filtrado, aes(x=METROSVI, y = DENSIDADVI))+scale_y_log10()+scale_x_log10()+geom_count(aes(color = PERS_HOGAR, alpha = 0.5))+labs(title = "Gráfico de metros de vivienda respecto a la densidad",
+       x = "Metros vivienda",
+       y = "Densidad", alpha = "Transparencia", color = "Número de personas por hogar")
+```
+
+Como observación previa, antes de analizar la gráfica, aunque la variable de personas por hogar es categórica, la hemos transformado a numérica para facilitar la comprensión de la gráfica. Al haber tanta cantidad de categorias, impedia entender con claridad el gráfico y de esta forma queda de forma más clara.
+
+Observando la gráfica notamos que existe una cierta relación entre las varibles metros y densidad. Estas dos variables están relacionadas por la variable de personas por hogar, y tiene sentido ya que la variable densidad se obtiene del cociente de estas dos variables restantes.
+
+## Ejemplo de uso de los datos
+
+Tras procesar y comprender los datos de nuestro set, ahora queremos explorar las posibilidades que estos datos tienen a la hora de generar contenido informativo. Para ello, crearemos una aplicación con la librería *shiny*, la cual contenga distintas funcionalidades generadaas a partir de los datos.
+
+Aprovechando que las instancias de nuestro dataset contienen la provincia en la cual se realiza la encuesta, un elemento de los que incluiremos será un mapa. Para ello, a través de la API de *geonames*, obtendremos la geolocalización de las distintas provincias que aparecne en el set de datos (en este caso aparecen todas).
+
+Este bloque es el encargado de obtener la latitud y longitud de las distintas provincias (no es necesario ejecutarlo, el dataset está guardado en la carpeta data)
+
+```{r, eval = FALSE}
+
+provinces <- tab_hogar$Desc[which(tab_hogar$Var == "IDQ_PV")]
+get_lat_long <- function(province) {
+  aux <- GNsearch(name = province, country = "ES", fcode = "ADM2") 
+  #Omito el username por privacidad
+  result <- c(aux$lat, aux$lng)
+  return(result)
+}
+
+lat_long <- lapply(provinces, get_lat_long)
+lat_long_df <- do.call(rbind, lat_long)
+```
+
+Una vez realizada la consulta via API a través de geonames, y obtenidas las latitudes y longitudes de las provincias, arreglamos el dataframe y lo guardamos en la carpeta data para no tener que realizar una consulta a la API cada vez que ejecutemos el código
+
+```{r, eval = FALSE, echo = FALSE}
+lat_long_df <- data.frame(lat_long_df)
+colnames(lat_long_df) = c("Latitud", "Longitud")
+
+provinces <- tab$Desc[which(tab$Var == "IDQ_PV")]
+
+lat_long_df <- lat_long_df %>%
+  mutate(Provincias = c(provinces)) %>%
+  select(Provincias, everything())
+
+write.csv(lat_long_df, file = "./data/geolocalizacion_provincias.csv")
+```
+
+Ahora que tenemos nuestro dataset con las provincias y sus geolocalizaciones, lo cargamos para trabajar con él. A partir de los datos de nuestrso datasets ya filtrados, obtendremos una serie de representaciones que esperemos nos aporten información valiosa acerca de los mismos.
+
+```{r, echo = FALSE}
+province_geoloc <- read.csv("./data/geolocalizacion_provincias.csv")
+selection <- df_filtrado %>%
+  select(PROVINCIA, METROSVI) %>%
+  group_by(PROVINCIA)  %>%
+  summarize(MeanSquareMeters = round(mean(METROSVI, na.rm = TRUE), 2)) %>%
+  mutate(aux = "Media (m²):") %>%
+  mutate(MeanSquareColRef = MeanSquareMeters) %>%
+  unite(MeanSquareM, aux, MeanSquareMeters, sep = " ")
+
+getColor <- colorNumeric(palette = "YlOrRd", domain = selection$MeanSquareColRef)
+ 
+# Crear un mapa centrado en España
+
+map_spain <- leaflet() %>%
+  addTiles(urlTemplate = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png') %>%
+  setView(lng = -3.7492, lat = 40.4637, zoom = 6) %>%
+  addCircleMarkers(
+    lat = province_geoloc$Latitud,
+    lng = province_geoloc$Longitud,
+    label = province_geoloc$Provincias,
+    popup = selection$MeanSquareM,
+    popupOptions = popupOptions(closeButton  = F),
+    color = getColor(selection$MeanSquareColRef),
+    group = "Media m² (2020)"
+    )%>%
+ 
+  addLegend(
+    position = "bottomright",
+    pal = getColor,
+    values = selection$MeanSquareColRef,
+    title = "Media m² (2020)",
+    group = "Media m² (2020)"
+    )%>%
+  
+  addLayersControl(overlayGroups = c("Media m² (2020)"))
+```
+
+Todas estas representaciones junto con otros elementos, como varios datasets, las incluimos en una aplicación para que sea más fácil y claro trabajar.
+
+```{r, include=FALSE, echo =FALSE}
+ ui <- dashboardPage(
+    dashboardHeader(title = "Menú dinámico"),
+    dashboardSidebar(
+      sidebarMenu(
+
+        menuItem("Proyecto AED 2023", tabName="title", icon = icon("star"))
+      ),
+      sidebarMenuOutput("menu")
+    ),
+    dashboardBody(tabItems(
+      
+      tabItem(tabName = "info",
+              h1("Información del proyecto"),
+               h3("El objetivo de este proyecto es enfrentarse a un problema real de tratamiento de datos que abarque todas las etapas que se describen a lo largo de la asignatura. El proyecto se realiza en grupos de trabajo, lo que  permitire adquirir nuevas compencias relacionadas con el trabajo en equipo, distribución de tareas, puesta en común, resolución de problemas, responsabilidad dentro del grupo, etc."),
+              p("En este estudio de análisis exploratorio de datos, se examina un extenso conjunto de datos relacionados con hogares y personas, abordando diversas variables cruciales para comprender las dinámicas socioeconómicas. El análisis se centra en aspectos fundamentales de los hogares, como su tamaño, ubicación geográfica y modalidades de adquisición de vivienda. Además, se profundiza en la caracterización de las personas que conforman estos hogares, explorando variables como la edad, nacionalidad y nivel educativo. A través de técnicas estadísticas descriptivas y visualizaciones, se revelan patrones, correlaciones y tendencias emergentes en los datos, arrojando luz sobre las complejas interrelaciones entre los factores estudiados. Este enfoque proporciona una visión integral que no solo destaca la diversidad de contextos residenciales, sino también la heterogeneidad de la población, ofreciendo valiosas perspectivas para la formulación de políticas y la toma de decisiones informada en temas relacionados con la vivienda y el bienestar social."),
+              fluidPage()
+      ),
+      tabItem(tabName = "plots", h2("Mapa interactivo"),
+              fluidRow(column(width = 12, class = "well",
+                              leafletOutput("map")))
+      ),
+      tabItem(tabName = "dashboard", h2("Contenido del dataset hogar"),
+              DT::dataTableOutput("table1")),
+      
+      tabItem(tabName = "dashboard2", h2("Contenido del dataset personas"),
+              DT::dataTableOutput("table2")),
+      
+      tabItem(tabName = "dashboard3", h2("Contenido del dataset filtrado"),
+              DT::dataTableOutput("table3")))
+    )
+ )
+
+  server <- function(input, output, session) {
+
+    output$menu <- renderMenu({
+      sidebarMenu(
+        menuItem("Información", tabName = "info", icon = icon("info")),
+        
+        menuItem("Menú del Mapa", tabName = "plots", icon = icon("map")),
+
+        menuItem("Datos de hogares", tabName="dashboard", icon = icon("table")),
+        
+        menuItem("Datos de personas", tabName="dashboard2", icon = icon("table")),
+        
+        menuItem("Datos filtrados", tabName="dashboard3", icon = icon("table"))
+      )
+    })
+
+   output$table1 <- DT::renderDataTable({
+    DT::datatable(hogar, options = list(scrollX = T, scrollY = T))
+  })
+    
+    output$table2 <- DT::renderDataTable({
+    DT::datatable(persona, options = list(scrollX = T, scrollY = T))
+  })
+    
+    output$table3 <- DT::renderDataTable({
+    DT::datatable(df_filtrado, options = list(scrollX = T, scrollY = T))
+  })
+    
+    output$map <- renderLeaflet({map_spain})
+
+  }
+
+  shinyApp(ui, server)
+```
