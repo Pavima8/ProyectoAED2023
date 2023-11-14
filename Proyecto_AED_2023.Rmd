@@ -1,8 +1,12 @@
 ---
 title: "Proyecto Análisis Exploratorio de Datos"
 author: "Adrián Lara Velasco, Andrea Romero Medina y Pablo Vicente Martínez"
-date: "2023"
+date: '2023'
 output:
+  html_document:
+    echo: yes
+    number_sections: no
+    theme: lumen
   pdf_document:
     toc: yes
     toc_depth: 3
