@@ -126,20 +126,11 @@ Estas son las librerías que utilizaremos a lo largo del proyecto.
 
 ```{r echo=F, warning=FALSE}
 #librerias
-library(readr)
-library(readxl)
-library(dplyr)
-library(tidyr)
-library(lubridate)
-library(caret)
-library(ggplot2)
-library(ggmosaic)
-library(geonames)
-library(leaflet)
-library(shiny)
-library(shinydashboard)
-library(dplyr)
-library(DT)
+if (!require(pacman)) {
+install.packages("pacman")
+library(pacman)
+}
+pacman::p_load(readr, readxl, tidyr, dplyr, lubridate, leaflet, caret, ggplot2, ggmosaic, geonames, shiny, shinydashboard, DT)
 ```
 
 ## Carga de los datos
@@ -1006,6 +997,9 @@ rm(lev)
 
 
 ```{r}
+df_saltolinea <- df_filtrado %>%
+  mutate(TAMANO = gsub("(habitantes)", "hab", TAMANO))
+
 ggplot(df_saltolinea, aes(x=TAMANO , y=METROSVI, fill = TAMANO))+ geom_boxplot()+ stat_boxplot (geom='errorbar', linetype=1, width=0.5) + scale_y_log10()+labs(title = "Boxplot tamaño de la provincia y los metros de vivienda",
        x = "Tamaño de la provincia",
        y = "Metros de la vivienda", fill= "Tamaño por número \n de habitantes") +
